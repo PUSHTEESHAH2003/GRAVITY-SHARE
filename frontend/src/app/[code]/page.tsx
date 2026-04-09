@@ -133,7 +133,14 @@ export default function ViewShare() {
         ) : (
           <div style={{ textAlign: 'center', padding: '2rem' }}>
             <p style={{ marginBottom: '2rem', opacity: 0.7 }}>A file has been shared with you.</p>
-            <a href={share.content} target="_blank" rel="noopener noreferrer" className="btn-primary" style={{ textDecoration: 'none', display: 'inline-block' }}>
+            <a 
+              href={share.content?.replace("/upload/", "/upload/fl_attachment/")} 
+              download={share.file_name}
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="btn-primary" 
+              style={{ textDecoration: 'none', display: 'inline-block' }}
+            >
               Download File
             </a>
           </div>
