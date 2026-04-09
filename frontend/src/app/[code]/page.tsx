@@ -14,7 +14,8 @@ export default function ViewShare() {
   useEffect(() => {
     const fetchShare = async () => {
       try {
-        const resp = await fetch(`http://localhost:8000/share/${code}`);
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+        const resp = await fetch(`${apiUrl}/share/${code}`);
         const data = await resp.json();
         if (data.code) {
           setShare(data);
@@ -28,7 +29,8 @@ export default function ViewShare() {
     fetchShare();
 
     // WebSocket for presence
-    const ws = new WebSocket(`ws://localhost:8000/ws/${code}`);
+    const wsUrl = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8000";
+    const ws = new WebSocket(`${wsUrl}/ws/${code}`);
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);

@@ -10,6 +10,10 @@ import json
 
 app = FastAPI(title="GravityShare API")
 
+@app.get("/")
+async def root():
+    return {"status": "healthy", "message": "GravityShare API is running"}
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
