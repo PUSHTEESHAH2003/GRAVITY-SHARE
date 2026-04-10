@@ -163,37 +163,27 @@ async def get_share(code: str):
 
             if public_id:
                 try:
-                    # CLOUDINARY RULES: For images/videos (including PDFs), 
-                    # the public_id used for signing MUST NOT include the extension.
-                    # The extension is passed separately in the 'format' parameter.
-                    signing_public_id = public_id
-                    current_format = share.get("file_name", "download").split(".")[-1]
+                    # Determine final resource type
+                    is_pdf = share.get("file_name", "").lower().endswith(".pdf") or public_id.lower().endswith(".pdf")
+                    final_res_type = "image" if is_pdf else res_type
                     
-                    if res_type in ["image", "video"]:
-                        for ext in [".pdf", ".jpg", ".png", ".gif", ".mp4"]:
-                            if signing_public_id.lower().endswith(ext):
-                                signing_public_id = signing_public_id[:-len(ext)]
-                                break
+                    # Ensure public_id doesn't have a trailing .pdf if we are forcing 'image'
+                    signing_id = public_id
+                    if is_pdf and signing_id.lower().endswith(".pdf"):
+                        signing_id = signing_id[:-4]
 
-                    # PERMANENT SOLUTION: Use private_download_url
+                    # Generate the signed download URL
                     signed_url = cloudinary.utils.private_download_url(
-                        signing_public_id,
-                        current_format if res_type in ["image", "video"] else "", # Format for images, empty for raw
-                        resource_type=res_type,
+                        signing_id,
+                        share.get("file_name", "download").split(".")[-1] if final_res_type in ["image", "video"] else "",
+                        resource_type=final_res_type,
                         attachment=share.get("file_name", True)
                     )
                     share["content"] = signed_url
                 except Exception as e:
                     print(f"Error generating private download URL: {e}")
-                    # Ultimate Fallback: try the basic signed transformer URL if API-based fails
-                    signed_url, _ = cloudinary.utils.cloudinary_url(
-                        public_id,
-                        sign_url=True,
-                        resource_type=res_type,
-                        format="pdf" if is_pdf else None,
-                        flags=f"attachment:{share.get('file_name', 'download')}"
-                    )
-                    share["content"] = signed_url
+                    # Fallback to direct URL
+                    pass
         except Exception as e:
             print(f"Error generating signed URL: {e}")
             # Fallback to original URL if signing fails

@@ -16,9 +16,17 @@ async def upload_file(file_content, filename):
     # motor or other async libs don't always support cloudinary's sync upload well, 
     # but for simplicity we'll use the standard uploader.
     # In a production app, we might use a threadpool.
+    # ROOT FIX: Strip extension from proposed public_id for Cloudinary
+    # Cloudinary handles extensions separately; adding them to public_id causes 'Resource Not Found'
+    clean_id = filename
+    for ext in [".pdf", ".jpg", ".jpeg", ".png", ".gif", ".mp4", ".zip", ".txt"]:
+        if clean_id.lower().endswith(ext):
+            clean_id = clean_id[:-len(ext)]
+            break
+
     upload_result = cloudinary.uploader.upload(
         file_content, 
-        public_id=filename, 
+        public_id=clean_id, 
         resource_type="auto",
         access_mode="public"
     )
