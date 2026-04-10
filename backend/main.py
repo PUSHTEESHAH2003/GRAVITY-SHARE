@@ -127,7 +127,9 @@ async def get_share(code: str):
         if expires.tzinfo is None:
             expires = expires.replace(tzinfo=timezone.utc)
         
-    # Generate a signed download URL if it's a file
+        share["expires_at"] = expires.isoformat().replace("+00:00", "Z")
+        remaining = (expires - datetime.now(timezone.utc)).total_seconds()
+        share["remaining_seconds"] = max(0, int(remaining))
     if share.get("content_type") == "file":
         try:
             public_id = share.get("file_public_id")
