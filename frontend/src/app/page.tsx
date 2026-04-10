@@ -9,6 +9,7 @@ export default function Home() {
   const [file, setFile] = useState<File | null>(null);
   const [codeToRetrieve, setCodeToRetrieve] = useState("");
   const [loading, setLoading] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const router = useRouter();
 
   const handleShare = async () => {
@@ -99,13 +100,26 @@ export default function Home() {
         {type === 'file' && (
           <div 
             style={{ 
-              border: '2px dashed var(--glass-border)', 
+              border: `2px dashed ${isDragging ? 'var(--accent)' : 'var(--glass-border)'}`, 
+              background: isDragging ? 'rgba(0, 255, 255, 0.05)' : 'transparent',
               borderRadius: '12px', 
               padding: '3rem', 
               textAlign: 'center',
-              cursor: 'pointer'
+              cursor: 'pointer',
+              transition: 'all 0.3s ease'
             }}
             onClick={() => document.getElementById('file-input')?.click()}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setIsDragging(true);
+            }}
+            onDragLeave={() => setIsDragging(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setIsDragging(false);
+              const droppedFile = e.dataTransfer.files?.[0];
+              if (droppedFile) setFile(droppedFile);
+            }}
           >
             <input 
               id="file-input" 
@@ -114,9 +128,9 @@ export default function Home() {
               onChange={(e) => setFile(e.target.files?.[0] || null)}
             />
             {file ? (
-              <p style={{ color: 'var(--accent)' }}>{file.name}</p>
+              <p style={{ color: 'var(--accent)', fontWeight: 'bold' }}>{file.name}</p>
             ) : (
-              <p style={{ opacity: 0.5 }}>Click or Drag & Drop File</p>
+              <p style={{ opacity: 0.5 }}>{isDragging ? "Drop it here!" : "Click or Drag & Drop File"}</p>
             )}
           </div>
         )}
