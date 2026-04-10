@@ -21,6 +21,8 @@ export default function ViewShare() {
   const [remainingSecs, setRemainingSecs] = useState<number | null>(null);
   const [presence, setPresence] = useState("");
   const [copied, setCopied] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [loadingMsg, setLoadingMsg] = useState("Synchronizing with the Gravity Core...");
   const { setCorePosition, setCoreScale, setCoreOpacity } = useGravity();
 
   useEffect(() => {
@@ -40,7 +42,24 @@ export default function ViewShare() {
     const fetchShare = async () => {
       try {
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+        
+        // Timeout for cold start warning
+        const timeout = setTimeout(() => {
+          setLoadingMsg("Portal is deep in space... (Backend is waking up)");
+        }, 5000);
+
         const resp = await fetch(`${apiUrl}/share/${code}`);
+        clearTimeout(timeout);
+
+        if (!resp.ok) {
+          if (resp.status === 404) {
+            setError("Portal has collapsed or never existed.");
+          } else {
+            setError("Communication failure with the Gravity Core.");
+          }
+          return;
+        }
+
         const data = await resp.json();
         if (data.code) {
           setShare(data);
@@ -48,6 +67,7 @@ export default function ViewShare() {
         }
       } catch (err) {
         console.error(err);
+        setError("Quantum interference detected. Please try again.");
       }
     };
 
@@ -97,15 +117,41 @@ export default function ViewShare() {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  if (error) {
+    return (
+      <motion.div 
+        initial={{ opacity: 0 }} 
+        animate={{ opacity: 1 }} 
+        style={{ textAlign: 'center', marginTop: '10rem', padding: '0 1rem' }}
+      >
+        <Shield size={64} color="var(--primary)" style={{ marginBottom: '2rem', opacity: 0.5 }} />
+        <h1 style={{ fontSize: 'clamp(2rem, 8vw, 3.5rem)', fontWeight: 900, marginBottom: '1.5rem' }}>
+          Portal <span style={{ color: 'var(--primary)' }}>Not Found.</span>
+        </h1>
+        <p style={{ opacity: 0.6, fontSize: '1.1rem', marginBottom: '2.5rem' }}>{error}</p>
+        <button className="btn-primary" onClick={() => router.push('/')}>
+          Return to Base
+        </button>
+      </motion.div>
+    );
+  }
+
   if (!share && timeLeft !== "EXPIRED") {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '60vh', gap: '2rem' }}>
         <motion.div
           animate={{ rotate: 360 }}
           transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
         >
           <Clock size={48} color="var(--accent)" />
         </motion.div>
+        <motion.p 
+          animate={{ opacity: [0.4, 1, 0.4] }}
+          transition={{ duration: 2, repeat: Infinity }}
+          style={{ letterSpacing: '2px', fontSize: '0.9rem', opacity: 0.6 }}
+        >
+          {loadingMsg}
+        </motion.p>
       </div>
     );
   }

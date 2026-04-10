@@ -216,6 +216,9 @@ export default function Home() {
                 placeholder="X7R2W9" 
                 value={codeToRetrieve}
                 onChange={(e) => setCodeToRetrieve(e.target.value.substring(0,6))}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleShare();
+                }}
                 style={{ 
                   fontSize: 'clamp(1.5rem, 8vw, 3rem)', 
                   textAlign: 'center', 
