@@ -183,13 +183,13 @@ async def get_share(code: str):
 async def proxy_download(code: str):
     share = await db.shares.find_one({"code": code.upper()})
     if not share or share.get("content_type") != "file":
-        raise HTTPException(status_code=404, detail="File not found")
+        raise HTTPException(status_code=404, detail="File not found or not a file share")
 
-    # Generate the internal signed URL
+    # 1. Identify source metadata
     public_id = share.get("file_public_id")
     res_type = share.get("file_resource_type", "auto")
     
-    # Simple fallback parser if metadata is missing
+    # 2. Parser fallback for legacy shares missing metadata
     if not public_id and share.get("content"):
         url_parts = share["content"].split("/")
         try:
@@ -199,9 +199,16 @@ async def proxy_download(code: str):
                 if url_parts[i].startswith("v") and url_parts[i][1:].isdigit():
                     public_id = "/".join(url_parts[i+1:])
                     break
-        except: pass
+        except Exception:
+            pass
 
-    # RESILIENT PROXY: Try to find the file across all possible Cloudinary categories
+    if not public_id:
+        raise HTTPException(status_code=404, detail="File source ID missing in database")
+
+    is_pdf = share.get("file_name", "").lower().endswith(".pdf") or public_id.lower().endswith(".pdf")
+    final_res_type = "image" if is_pdf else res_type
+
+    # 3. RESILIENT PROXY: Try to find the file across all possible Cloudinary categories
     async def get_valid_source():
         types_to_try = [final_res_type]
         if is_pdf:
@@ -212,14 +219,13 @@ async def proxy_download(code: str):
         async with httpx.AsyncClient(timeout=10.0) as client:
             for rtype in types_to_try:
                 local_id = public_id
-                # Rule: Images/Videos use clean IDs; Raw uses full filename ID
+                # Rule: Images/Videos use clean IDs (no extension); Raw uses full IDs
                 if rtype in ["image", "video"]:
                     for ext in [".pdf", ".jpg", ".jpeg", ".png", ".gif", ".mp4"]:
                         if local_id.lower().endswith(ext):
                             local_id = local_id[:-len(ext)]
                             break
                 
-                # Try generating the signed URL for this attempt
                 try:
                     target_url = cloudinary.utils.private_download_url(
                         local_id,
@@ -228,22 +234,19 @@ async def proxy_download(code: str):
                         attachment=share.get("file_name", True)
                     )
                     
-                    # PRE-FLIGHT: Check if Cloudinary actually has this file
+                    # PROBE: Check if Cloudinary has this file
                     resp = await client.head(target_url)
                     if resp.status_code == 200:
-                        print(f"Proxy Found File: {rtype} | ID: {local_id}")
                         return target_url
-                    else:
-                        print(f"Proxy Probe Failed: {rtype} ({resp.status_code})")
-                except Exception as e:
-                    print(f"Proxy Error during probe for {rtype}: {e}")
+                except Exception:
+                    continue
         return None
 
     target_signed_url = await get_valid_source()
     if not target_signed_url:
-        print(f"Critical: All proxy attempts failed for {code}")
-        raise HTTPException(status_code=404, detail="File could not be retrieved from Cloudinary storage.")
+        raise HTTPException(status_code=404, detail="File could not be found in any Cloudinary category.")
 
+    # 4. Stream the verified URL
     async def stream_file():
         async with httpx.AsyncClient(timeout=60.0) as client:
             async with client.stream("GET", target_signed_url) as response:
