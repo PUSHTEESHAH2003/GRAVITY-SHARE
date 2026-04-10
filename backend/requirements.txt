@@ -6,3 +6,4 @@ motor
 python-dotenv
 cloudinary
 pydantic
+httpx

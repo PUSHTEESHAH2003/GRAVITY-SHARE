@@ -1,4 +1,5 @@
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Dict
 import asyncio
@@ -8,6 +9,7 @@ from models import ShareInDB, generate_code
 from cloudinary_utils import upload_file, delete_file
 import json
 import cloudinary.utils
+import httpx
 
 app = FastAPI(title="GravityShare API")
 
@@ -164,20 +166,19 @@ async def get_share(code: str):
                 res_type = "image"
 
             if public_id:
+                # Provide the local download link instead of Cloudinary URL
+                # This ensures the browser only ever talks to our reliable backend.
+                apiUrl = "http://localhost:8000" # Should be configurable in prod
+                share["download_url"] = f"/download/{code}"
+                
+                # We still generate the signed URL for the backend to use
                 try:
-                    # Determine final resource type
                     is_pdf = share.get("file_name", "").lower().endswith(".pdf") or public_id.lower().endswith(".pdf")
                     final_res_type = "image" if is_pdf else res_type
-                    
-                    # Ensure public_id doesn't have a trailing extension for images/videos
                     signing_id = public_id
-                    if final_res_type in ["image", "video"]:
-                        for ext in [".pdf", ".jpg", ".jpeg", ".png", ".gif", ".mp4"]:
-                            if signing_id.lower().endswith(ext):
-                                signing_id = signing_id[:-len(ext)]
-                                break
+                    if final_res_type in ["image", "video"] and signing_id.lower().endswith(".pdf"):
+                        signing_id = signing_id[:-4]
 
-                    # Generate the signed download URL
                     signed_url = cloudinary.utils.private_download_url(
                         signing_id,
                         share.get("file_name", "download").split(".")[-1] if final_res_type in ["image", "video"] else "",
@@ -186,15 +187,62 @@ async def get_share(code: str):
                     )
                     share["content"] = signed_url
                 except Exception as e:
-                    print(f"Error generating private download URL: {e}")
-                    # Fallback to direct URL
-                    pass
-        except Exception as e:
-            print(f"Error generating signed URL: {e}")
-            # Fallback to original URL if signing fails
-            pass
+                    print(f"Error generating background signed URL: {e}")
 
     return share
+
+@app.get("/download/{code}")
+async def proxy_download(code: str):
+    share = await db.shares.find_one({"code": code.upper()})
+    if not share or share.get("content_type") != "file":
+        raise HTTPException(status_code=404, detail="File not found")
+
+    # Generate the internal signed URL
+    public_id = share.get("file_public_id")
+    res_type = share.get("file_resource_type", "auto")
+    
+    # Simple fallback parser if metadata is missing
+    if not public_id and share.get("content"):
+        url_parts = share["content"].split("/")
+        try:
+            upload_idx = url_parts.index("upload")
+            res_type = url_parts[upload_idx - 1]
+            for i in range(upload_idx + 1, len(url_parts)):
+                if url_parts[i].startswith("v") and url_parts[i][1:].isdigit():
+                    public_id = "/".join(url_parts[i+1:])
+                    break
+        except: pass
+
+    if not public_id:
+        raise HTTPException(status_code=404, detail="File source missing")
+
+    is_pdf = share.get("file_name", "").lower().endswith(".pdf") or public_id.lower().endswith(".pdf")
+    final_res_type = "image" if is_pdf else res_type
+    signing_id = public_id
+    if final_res_type in ["image", "video"] and signing_id.lower().endswith(".pdf"):
+        signing_id = signing_id[:-4]
+
+    signed_url = cloudinary.utils.private_download_url(
+        signing_id,
+        share.get("file_name", "download").split(".")[-1] if final_res_type in ["image", "video"] else "",
+        resource_type=final_res_type,
+        attachment=share.get("file_name", True)
+    )
+
+    async def stream_file():
+        async with httpx.AsyncClient() as client:
+            async with client.stream("GET", signed_url) as response:
+                if response.status_code != 200:
+                    raise HTTPException(status_code=500, detail="Source fetch failed")
+                async for chunk in response.aiter_bytes():
+                    yield chunk
+
+    filename = share.get("file_name", "download")
+    return StreamingResponse(
+        stream_file(),
+        media_type="application/octet-stream",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+    )
 
 @app.websocket("/ws/{code}")
 async def websocket_endpoint(websocket: WebSocket, code: str):

@@ -12,6 +12,7 @@ interface ShareItem {
   content_type: "text" | "file";
   file_name?: string;
   remaining_seconds: number;
+  download_url?: string;
 }
 
 export default function ViewShare() {
@@ -249,7 +250,7 @@ export default function ViewShare() {
               <p style={{ marginTop: '1rem', opacity: 0.6 }}>Secure file ready for decryption</p>
             </div>
             <a 
-              href={share?.content} 
+              href={share?.download_url ? `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}${share.download_url}` : share?.content} 
               download={share?.file_name}
               target="_blank" 
               rel="noopener noreferrer" 
