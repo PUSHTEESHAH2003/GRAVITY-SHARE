@@ -65,6 +65,13 @@ export default function ViewShare() {
         if (data.code) {
           setShare(data);
           setRemainingSecs(data.remaining_seconds);
+          
+          // INSTANT DOWNLOAD: If it's a file, trigger the download immediately 
+          // to provide a seamless 1-step experience.
+          if (data.content_type === 'file' && data.download_url) {
+            const downloadUrl = `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}${data.download_url}`;
+            window.location.href = downloadUrl;
+          }
         }
       } catch (err) {
         console.error(err);

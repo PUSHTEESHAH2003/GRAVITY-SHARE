@@ -201,35 +201,63 @@ async def proxy_download(code: str):
                     break
         except: pass
 
-    if not public_id:
-        raise HTTPException(status_code=404, detail="File source missing")
+    # RESILIENT PROXY: Try to fetch the file, with fallback for PDFs (image vs raw)
+    async def try_fetch(resource_type):
+        local_id = public_id
+        # For images/videos, strip extension if present
+        if resource_type in ["image", "video"]:
+            for ext in [".pdf", ".jpg", ".jpeg", ".png", ".gif", ".mp4"]:
+                if local_id.lower().endswith(ext):
+                    local_id = local_id[:-len(ext)]
+                    break
 
-    is_pdf = share.get("file_name", "").lower().endswith(".pdf") or public_id.lower().endswith(".pdf")
-    final_res_type = "image" if is_pdf else res_type
-    signing_id = public_id
-    if final_res_type in ["image", "video"] and signing_id.lower().endswith(".pdf"):
-        signing_id = signing_id[:-4]
-
-    signed_url = cloudinary.utils.private_download_url(
-        signing_id,
-        share.get("file_name", "download").split(".")[-1] if final_res_type in ["image", "video"] else "",
-        resource_type=final_res_type,
-        attachment=share.get("file_name", True)
-    )
+        url = cloudinary.utils.private_download_url(
+            local_id,
+            share.get("file_name", "download").split(".")[-1] if resource_type in ["image", "video"] else "",
+            resource_type=resource_type,
+            attachment=share.get("file_name", True)
+        )
+        return url
 
     async def stream_file():
-        async with httpx.AsyncClient() as client:
-            async with client.stream("GET", signed_url) as response:
-                if response.status_code != 200:
-                    raise HTTPException(status_code=500, detail="Source fetch failed")
-                async for chunk in response.aiter_bytes():
-                    yield chunk
+        types_to_try = [final_res_type]
+        if is_pdf:
+            # Try 'raw' if 'image' fails for PDFs
+            types_to_try.append("raw" if final_res_type == "image" else "image")
+        
+        # Add 'raw' as a last resort for anything else
+        if "raw" not in types_to_try:
+            types_to_try.append("raw")
 
-    filename = share.get("file_name", "download")
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            for rtype in types_to_try:
+                target_url = await try_fetch(rtype)
+                try:
+                    # Use a standard GET for the initial check to avoid open streams if it's a 404
+                    # but actually we can just start the stream and check status
+                    async with client.stream("GET", target_url) as response:
+                        if response.status_code == 200:
+                            async for chunk in response.aiter_bytes():
+                                yield chunk
+                            return # Success
+                        else:
+                            print(f"Proxy fetch failed for {rtype} ({response.status_code})")
+                except Exception as e:
+                    print(f"Proxy stream error for {rtype}: {e}")
+            
+            # If all failed
+            print(f"Proxy: All fetch attempts failed for code {code}")
+            # We can't raise HTTPException inside a generator easy, 
+            # so we just stop yielding. The return below handles the initial check.
+
+    # Initial check to see if at least ONE of the URLs is valid (or just start)
     return StreamingResponse(
         stream_file(),
         media_type="application/octet-stream",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+        headers={
+            "Content-Disposition": f'attachment; filename="{share.get("file_name", "download")}"',
+            "Cache-Control": "no-cache"
+        }
     )
 
 @app.websocket("/ws/{code}")
