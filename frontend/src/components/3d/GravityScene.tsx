@@ -10,7 +10,7 @@ function GravityCore() {
   const meshRef = useRef<THREE.Group>(null);
   const { corePosition, coreScale, coreOpacity } = useGravity();
 
-  useFrame((state) => {
+  useFrame(() => {
     if (meshRef.current) {
       // Smoothly interpolate position (lerp)
       meshRef.current.position.x = THREE.MathUtils.lerp(meshRef.current.position.x, corePosition[0], 0.1);

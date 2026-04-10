@@ -163,9 +163,9 @@ export default function ViewShare() {
             <div style={{ padding: '0.5rem', background: 'rgba(255,255,255,0.05)', borderRadius: '10px' }}>
               <FileText size={20} color="var(--accent)" />
             </div>
-            <h3 style={{ fontSize: '1.2rem', fontWeight: 600 }}>{share.content_type === 'text' ? 'Encrypted Text' : share.file_name}</h3>
+            <h3 style={{ fontSize: '1.2rem', fontWeight: 600 }}>{share?.content_type === 'text' ? 'Encrypted Text' : share?.file_name}</h3>
           </div>
-          {share.content_type === 'text' && (
+          {share?.content_type === 'text' && (
             <button 
               className="btn-primary" 
               onClick={copyToClipboard} 
@@ -177,7 +177,7 @@ export default function ViewShare() {
           )}
         </div>
 
-        {share.content_type === 'text' ? (
+        {share?.content_type === 'text' ? (
           <div style={{ position: 'relative' }}>
             <pre style={{ 
               background: 'rgba(0,0,0,0.3)', 
@@ -191,7 +191,7 @@ export default function ViewShare() {
               color: '#e0e0e0',
               border: '1px solid rgba(255,255,255,0.05)'
             }}>
-              {share.content}
+              {share?.content}
             </pre>
           </div>
         ) : (
@@ -203,8 +203,8 @@ export default function ViewShare() {
               <p style={{ marginTop: '1rem', opacity: 0.6 }}>Secure file ready for decryption</p>
             </div>
             <a 
-              href={share.content?.replace("/upload/", "/upload/fl_attachment/")} 
-              download={share.file_name}
+              href={share?.content?.replace("/upload/", "/upload/fl_attachment/")} 
+              download={share?.file_name}
               target="_blank" 
               rel="noopener noreferrer" 
               className="btn-primary" 
