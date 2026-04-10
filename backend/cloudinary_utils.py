@@ -22,7 +22,7 @@ async def upload_file(file_content, filename):
         resource_type="auto",
         access_mode="public"
     )
-    return upload_result.get("secure_url"), upload_result.get("public_id")
+    return upload_result.get("secure_url"), upload_result.get("public_id"), upload_result.get("resource_type")
 
 async def delete_file(public_id):
     if public_id:

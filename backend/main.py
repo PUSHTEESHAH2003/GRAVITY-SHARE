@@ -7,6 +7,7 @@ from database import db
 from models import ShareInDB, generate_code
 from cloudinary_utils import upload_file, delete_file
 import json
+import cloudinary.utils
 
 app = FastAPI(title="GravityShare API")
 
@@ -94,10 +95,11 @@ async def create_share(
         
         try:
             file_content = await file.read()
-            url, public_id = await upload_file(file_content, f"gravity_{code}_{file.filename}")
+            url, public_id, res_type = await upload_file(file_content, f"gravity_{code}_{file.filename}")
             share_data["content"] = url
             share_data["file_name"] = file.filename
             share_data["file_public_id"] = public_id
+            share_data["file_resource_type"] = res_type
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Upload failed: {e}")
     else:
@@ -128,6 +130,25 @@ async def get_share(code: str):
         share["expires_at"] = expires.isoformat().replace("+00:00", "Z")
         remaining = (expires - datetime.now(timezone.utc)).total_seconds()
         share["remaining_seconds"] = max(0, int(remaining))
+    
+    # Generate a signed download URL if it's a file
+    if share.get("content_type") == "file" and share.get("file_public_id"):
+        try:
+            # We add a signature and force attachment with the original filename
+            signed_url, _ = cloudinary.utils.cloudinary_url(
+                share["file_public_id"],
+                sign_url=True,
+                resource_type=share.get("file_resource_type", "auto"),
+                transformation=[
+                    {"flags": f"attachment:{share.get('file_name', 'download')}"}
+                ]
+            )
+            share["content"] = signed_url
+        except Exception as e:
+            print(f"Error generating signed URL: {e}")
+            # Fallback to original URL if signing fails
+            pass
+
     return share
 
 @app.websocket("/ws/{code}")

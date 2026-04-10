@@ -11,6 +11,7 @@ class ShareBase(BaseModel):
     content: Optional[str] = None  # Text content or File URL
     file_name: Optional[str] = None
     file_public_id: Optional[str] = None
+    file_resource_type: Optional[str] = None
 
 class Tag(BaseModel):
     code: str = Field(default_factory=generate_code)
