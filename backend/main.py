@@ -188,7 +188,8 @@ async def get_share(code: str):
                     share["content"] = signed_url
                 except Exception as e:
                     print(f"Error in share processing: {e}")
-                    pass
+        except Exception as e:
+            print(f"Fatal error in get_share: {e}")
 
     return share
 
