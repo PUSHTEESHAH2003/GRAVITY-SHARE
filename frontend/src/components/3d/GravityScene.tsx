@@ -101,23 +101,20 @@ export default function GravityScene() {
   const hour = new Date().getHours();
   const isNight = hour >= 18 || hour < 6;
 
-  // Atmosphere settings (Mobile Only Logic)
+  // Atmosphere settings (Global Time-Aware Logic)
   const atmosphere = useMemo(() => {
-    const isDayMobile = isMobile && !isNight;
-    const isNightMobile = isMobile && isNight;
-
     return {
-      coreColor: isNightMobile ? "#4b0082" : "#00ffff",
-      shellColor: isNightMobile ? "#1a0033" : "#8a2be2",
-      particleColor: isNightMobile ? "#8a2be2" : "#00ffff",
-      emissiveIntensity: isNightMobile ? 0.2 : 0.5,
-      distortSpeed: isNightMobile ? 1 : (isDayMobile ? 4 : 3),
-      distortAmount: isNightMobile ? 0.2 : 0.4,
-      floatSpeed: isNightMobile ? 1 : 2,
-      rotationIntensity: isNightMobile ? 1 : 2,
-      floatIntensity: isNightMobile ? 1 : 2,
-      particleRotationY: isNightMobile ? 0.0003 : 0.001,
-      particleRotationX: isNightMobile ? 0.0001 : 0.0005,
+      coreColor: isNight ? "#4b0082" : "#00ffff",
+      shellColor: isNight ? "#1a0033" : "#8a2be2",
+      particleColor: isNight ? "#8a2be2" : "#00ffff",
+      emissiveIntensity: isNight ? 0.2 : 0.8,
+      distortSpeed: isNight ? 1 : (isMobile ? 5 : 3),
+      distortAmount: isNight ? 0.2 : 0.45,
+      floatSpeed: isNight ? 1 : (isMobile ? 2.5 : 2),
+      rotationIntensity: isNight ? 1 : 2,
+      floatIntensity: isNight ? 1 : 2,
+      particleRotationY: isNight ? 0.0003 : 0.0012,
+      particleRotationX: isNight ? 0.0001 : 0.0006,
     };
   }, [isMobile, isNight]);
 
@@ -127,14 +124,14 @@ export default function GravityScene() {
     <div id="canvas-background">
       <Canvas dpr={[1, 2]}>
         <PerspectiveCamera makeDefault position={[0, 0, 10]} />
-        <ambientLight intensity={isNight && isMobile ? 0.1 : 0.2} />
-        <pointLight position={[10, 10, 10]} intensity={isNight && isMobile ? 0.8 : 1.5} color={atmosphere.shellColor} />
-        <pointLight position={[-10, -10, -10]} intensity={isNight && isMobile ? 0.5 : 1} color={atmosphere.coreColor} />
+        <ambientLight intensity={isNight ? 0.1 : 0.2} />
+        <pointLight position={[10, 10, 10]} intensity={isNight ? 0.8 : 1.5} color={atmosphere.shellColor} />
+        <pointLight position={[-10, -10, -10]} intensity={isNight ? 0.5 : 1} color={atmosphere.coreColor} />
         
         <GravityCore atmosphere={atmosphere} />
         <DataParticles count={particleCount} atmosphere={atmosphere} />
         
-        <fog attach="fog" args={[isNight && isMobile ? "#050507" : "#0a0a0c", 10, 25]} />
+        <fog attach="fog" args={[isNight ? "#050507" : "#0a0a0c", 10, 25]} />
       </Canvas>
     </div>
   );
