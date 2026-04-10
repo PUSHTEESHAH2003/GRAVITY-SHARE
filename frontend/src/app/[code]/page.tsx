@@ -138,7 +138,7 @@ export default function ViewShare() {
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-            <div style={{ p: '0.5rem', background: 'rgba(255,255,255,0.05)', borderRadius: '10px' }}>
+            <div style={{ padding: '0.5rem', background: 'rgba(255,255,255,0.05)', borderRadius: '10px' }}>
               <FileText size={20} color="var(--accent)" />
             </div>
             <h3 style={{ fontSize: '1.2rem', fontWeight: 600 }}>{share.content_type === 'text' ? 'Encrypted Text' : share.file_name}</h3>
@@ -147,7 +147,7 @@ export default function ViewShare() {
             <button 
               className="btn-primary" 
               onClick={copyToClipboard} 
-              style={{ p: '0.6rem 1.2rem', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+              style={{ padding: '0.6rem 1.2rem', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
             >
               {copied ? <CheckCircle size={16} /> : <Copy size={16} />}
               {copied ? 'Captured' : 'Copy'}
