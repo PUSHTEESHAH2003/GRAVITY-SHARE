@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
+import { Upload, FileText, Search, Clock, Shield, ArrowRight } from "lucide-react";
 
 export default function Home() {
   const [type, setType] = useState<"text" | "file" | "retrieve">("text");
@@ -55,126 +57,187 @@ export default function Home() {
   };
 
   return (
-    <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2rem', marginTop: '4rem' }}>
-      <div style={{ textAlign: 'center', maxWidth: '600px' }}>
-        <h1 style={{ fontSize: '3.5rem', marginBottom: '1rem', fontWeight: 900 }}>Drop it. Share it. <span style={{ color: 'var(--accent)' }}>Gone in 1h.</span></h1>
-        <p style={{ opacity: 0.7, fontSize: '1.1rem' }}>The ultimate temporary clipboard for developers and humans alike.</p>
+    <motion.div 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.8 }}
+      style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2rem', marginTop: '4rem' }}
+    >
+      <div style={{ textAlign: 'center', maxWidth: '800px' }}>
+        <motion.div
+           initial={{ scale: 0.9, opacity: 0 }}
+           animate={{ scale: 1, opacity: 1 }}
+           transition={{ delay: 0.2, duration: 0.5 }}
+        >
+          <h1 style={{ fontSize: '4.5rem', marginBottom: '1.5rem', fontWeight: 900, lineHeight: 1.1 }}>
+            Securely Share. <br />
+            <span style={{ color: 'var(--accent)', textShadow: '0 0 30px rgba(0,255,255,0.3)' }}>Then it Vanishes.</span>
+          </h1>
+        </motion.div>
+        <p style={{ opacity: 0.7, fontSize: '1.2rem', marginBottom: '2rem' }}>
+          An ephemeral data sharing platform that defies gravity and persists for only 60 minutes.
+        </p>
       </div>
 
-      <div className="glass-card" style={{ width: '100%', maxWidth: '700px' }}>
-        <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem' }}>
-          <button 
-            className={`btn-primary ${type !== 'text' ? 'secondary' : ''}`} 
-            onClick={() => setType('text')}
-            style={type !== 'text' ? { background: 'rgba(255,255,255,0.05)', color: '#fff' } : {}}
-          >
-            Share Text
-          </button>
-          <button 
-            className={`btn-primary ${type !== 'file' ? 'secondary' : ''}`} 
-            onClick={() => setType('file')}
-            style={type !== 'file' ? { background: 'rgba(255,255,255,0.05)', color: '#fff' } : {}}
-          >
-            Share File
-          </button>
-          <button 
-            className={`btn-primary ${type !== 'retrieve' ? 'secondary' : ''}`} 
-            onClick={() => setType('retrieve')}
-            style={type !== 'retrieve' ? { background: 'rgba(255,255,255,0.05)', color: '#fff' } : {}}
-          >
-            Retrieve
-          </button>
+      <motion.div 
+        className="glass-card" 
+        style={{ width: '100%', maxWidth: '750px' }}
+        whileHover={{ scale: 1.01 }}
+      >
+        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '2.5rem', background: 'rgba(255,255,255,0.03)', padding: '0.5rem', borderRadius: '16px' }}>
+          {[
+            { id: 'text', label: 'Plain Text', icon: FileText },
+            { id: 'file', label: 'Upload File', icon: Upload },
+            { id: 'retrieve', label: 'Retrieve', icon: Search }
+          ].map((btn) => (
+            <button 
+              key={btn.id}
+              className={`btn-primary ${type !== btn.id ? 'secondary' : ''}`} 
+              onClick={() => setType(btn.id as any)}
+              style={{
+                flex: 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.5rem',
+                background: type === btn.id ? 'linear-gradient(135deg, var(--primary), var(--secondary))' : 'transparent',
+                boxShadow: type === btn.id ? '0 4px 15px rgba(138, 43, 226, 0.4)' : 'none',
+                color: type === btn.id ? '#fff' : 'rgba(255,255,255,0.6)'
+              }}
+            >
+              <btn.icon size={18} />
+              {btn.label}
+            </button>
+          ))}
         </div>
 
-        {type === 'text' && (
-          <textarea 
-            className="input-field" 
-            placeholder="Paste your code or text here..." 
-            rows={10}
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            style={{ resize: 'none' }}
-          />
-        )}
-        
-        {type === 'file' && (
-          <div 
-            style={{ 
-              border: `2px dashed ${isDragging ? 'var(--accent)' : 'var(--glass-border)'}`, 
-              background: isDragging ? 'rgba(0, 255, 255, 0.05)' : 'transparent',
-              borderRadius: '12px', 
-              padding: '3rem', 
-              textAlign: 'center',
-              cursor: 'pointer',
-              transition: 'all 0.3s ease'
-            }}
-            onClick={() => document.getElementById('file-input')?.click()}
-            onDragOver={(e) => {
-              e.preventDefault();
-              setIsDragging(true);
-            }}
-            onDragLeave={() => setIsDragging(false)}
-            onDrop={(e) => {
-              e.preventDefault();
-              setIsDragging(false);
-              const droppedFile = e.dataTransfer.files?.[0];
-              if (droppedFile) setFile(droppedFile);
-            }}
-          >
-            <input 
-              id="file-input" 
-              type="file" 
-              hidden 
-              onChange={(e) => setFile(e.target.files?.[0] || null)}
-            />
-            {file ? (
-              <div className="upload-icon dragging" style={{ marginBottom: '1rem' }}>
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 2v10m0 0l-3-3m3 3l3-3" style={{ transform: 'rotate(180deg)', transformOrigin: 'center' }} />
-                  <path d="M20 16.58A5 5 0 0 0 18 7h-1.26A8 8 0 1 0 4 15.25" />
-                </svg>
+        <AnimatePresence mode="wait">
+          {type === 'text' && (
+            <motion.div
+              key="text"
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 10 }}
+            >
+              <textarea 
+                className="input-field" 
+                placeholder="Paste sensitive data, code snippets, or notes..." 
+                rows={10}
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                style={{ resize: 'none', background: 'rgba(0,0,0,0.2)', fontSize: '1.1rem' }}
+              />
+            </motion.div>
+          )}
+          
+          {type === 'file' && (
+            <motion.div
+              key="file"
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 10 }}
+            >
+              <div 
+                style={{ 
+                  border: `2px dashed ${isDragging ? 'var(--accent)' : 'var(--glass-border)'}`, 
+                  background: isDragging ? 'rgba(0, 255, 255, 0.05)' : 'rgba(0,0,0,0.2)',
+                  borderRadius: '20px', 
+                  padding: '4rem 2rem', 
+                  textAlign: 'center',
+                  cursor: 'pointer',
+                  transition: 'all 0.4s ease',
+                  position: 'relative',
+                  overflow: 'hidden'
+                }}
+                onClick={() => document.getElementById('file-input')?.click()}
+                onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                onDragLeave={() => setIsDragging(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setIsDragging(false);
+                  const droppedFile = e.dataTransfer.files?.[0];
+                  if (droppedFile) setFile(droppedFile);
+                }}
+              >
+                <input id="file-input" type="file" hidden onChange={(e) => setFile(e.target.files?.[0] || null)} />
+                <motion.div
+                  animate={isDragging ? { y: [0, -10, 0], scale: 1.1 } : { y: 0, scale: 1 }}
+                  transition={{ repeat: isDragging ? Infinity : 0, duration: 1 }}
+                >
+                   <Upload size={48} color={isDragging ? 'var(--accent)' : 'white'} style={{ opacity: 0.8, marginBottom: '1.5rem' }} />
+                </motion.div>
+                {file ? (
+                  <p style={{ color: 'var(--accent)', fontWeight: 'bold', fontSize: '1.2rem' }}>{file.name}</p>
+                ) : (
+                  <div>
+                    <p style={{ opacity: 0.8, fontSize: '1.2rem', marginBottom: '0.5rem' }}>
+                      {isDragging ? "Release to Defy Gravity" : "Drop files into orbit"}
+                    </p>
+                    <p style={{ opacity: 0.4, fontSize: '0.9rem' }}>Supports documents, images and code</p>
+                  </div>
+                )}
               </div>
-            ) : (
-              <div className={`upload-icon ${isDragging ? 'dragging' : ''}`}>
-                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 12V2" />
-                  <path d="m8 6 4-4 4 4" />
-                  <circle cx="12" cy="18" r="3" />
-                  <path d="M12 15a6 6 0 0 0-6 6" />
-                  <path d="M18 21a6 6 0 0 0-6-6" />
-                </svg>
-              </div>
-            )}
-            {file ? (
-              <p style={{ color: 'var(--accent)', fontWeight: 'bold' }}>{file.name}</p>
-            ) : (
-              <p style={{ opacity: 0.5, fontSize: '1.1rem' }}>{isDragging ? "Drop to defy gravity" : "Click or Drag & Drop File"}</p>
-            )}
-          </div>
-        )}
+            </motion.div>
+          )}
 
-        {type === 'retrieve' && (
-          <div style={{ textAlign: 'center' }}>
-            <p style={{ marginBottom: '1.5rem', opacity: 0.6 }}>Enter the 6-character sharing code</p>
-            <input 
-              className="input-field" 
-              placeholder="e.g. A2B3C4" 
-              value={codeToRetrieve}
-              onChange={(e) => setCodeToRetrieve(e.target.value.substring(0,6))}
-              style={{ fontSize: '2rem', textAlign: 'center', letterSpacing: '8px', textTransform: 'uppercase' }}
-            />
-          </div>
-        )}
+          {type === 'retrieve' && (
+            <motion.div
+              key="retrieve"
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 10 }}
+              style={{ textAlign: 'center' }}
+            >
+              <p style={{ marginBottom: '2rem', opacity: 0.6, fontSize: '1.1rem' }}>Enter the unique 6-character portal code</p>
+              <input 
+                className="input-field" 
+                placeholder="X7R2W9" 
+                value={codeToRetrieve}
+                onChange={(e) => setCodeToRetrieve(e.target.value.substring(0,6))}
+                style={{ 
+                  fontSize: '3rem', 
+                  textAlign: 'center', 
+                  letterSpacing: '12px', 
+                  textTransform: 'uppercase',
+                  fontWeight: 900,
+                  background: 'rgba(0,0,0,0.2)',
+                  color: 'var(--accent)'
+                }}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <button 
           className="btn-primary" 
-          style={{ width: '100%', marginTop: '2rem', padding: '1.2rem' }}
+          style={{ 
+            width: '100%', 
+            marginTop: '2.5rem', 
+            padding: '1.5rem', 
+            fontSize: '1.2rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '0.8rem'
+          }}
           onClick={handleShare}
           disabled={loading}
         >
-          {loading ? "Processing..." : (type === 'retrieve' ? "View Share" : "Generate Sharing Code")}
+          {loading ? (
+            <Clock className="animate-spin" />
+          ) : (
+            <>
+              {type === 'retrieve' ? "Open Portal" : "Secure Launch"}
+              <ArrowRight size={20} />
+            </>
+          )}
         </button>
-      </div>
-    </div>
+
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '2rem', marginTop: '2rem', opacity: 0.4, fontSize: '0.8rem' }}>
+           <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}><Shield size={14} /> End-to-End Encrypted</div>
+           <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}><Clock size={14} /> 60 Minute Lifecycle</div>
+        </div>
+      </motion.div>
+    </motion.div>
   );
 }

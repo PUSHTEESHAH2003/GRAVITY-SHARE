@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import GravityScene from "@/components/3d/GravityScene";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -17,11 +18,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <nav className="nav">
+        <GravityScene />
+        <nav className="nav" style={{ position: 'relative', zIndex: 10 }}>
           <div className="logo">GRAVITY SHARE</div>
           <div style={{ opacity: 0.6, fontSize: '0.9rem' }}>Secure. Temporary. Instant.</div>
         </nav>
-        <main className="container">
+        <main className="container" style={{ position: 'relative', zIndex: 10 }}>
           {children}
         </main>
       </body>
