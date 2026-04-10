@@ -137,3 +137,27 @@ body::before {
   color: var(--accent);
   font-size: 1.2rem;
 }
+
+/* Upload Sign Animations */
+@keyframes float {
+  0% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-10px) rotate(2deg); }
+  100% { transform: translateY(0px) rotate(0deg); }
+}
+
+@keyframes pulse-glow {
+  0% { filter: drop-shadow(0 0 5px var(--accent)); opacity: 0.8; }
+  50% { filter: drop-shadow(0 0 20px var(--accent)); opacity: 1; }
+  100% { filter: drop-shadow(0 0 5px var(--accent)); opacity: 0.8; }
+}
+
+.upload-icon {
+  animation: float 4s ease-in-out infinite;
+  margin-bottom: 1.5rem;
+  color: var(--accent);
+}
+
+.upload-icon.dragging {
+  animation: pulse-glow 1.5s ease-in-out infinite;
+  scale: 1.2;
+}

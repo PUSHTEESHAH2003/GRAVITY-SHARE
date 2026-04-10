@@ -128,9 +128,27 @@ export default function Home() {
               onChange={(e) => setFile(e.target.files?.[0] || null)}
             />
             {file ? (
+              <div className="upload-icon dragging" style={{ marginBottom: '1rem' }}>
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 2v10m0 0l-3-3m3 3l3-3" style={{ transform: 'rotate(180deg)', transformOrigin: 'center' }} />
+                  <path d="M20 16.58A5 5 0 0 0 18 7h-1.26A8 8 0 1 0 4 15.25" />
+                </svg>
+              </div>
+            ) : (
+              <div className={`upload-icon ${isDragging ? 'dragging' : ''}`}>
+                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 12V2" />
+                  <path d="m8 6 4-4 4 4" />
+                  <circle cx="12" cy="18" r="3" />
+                  <path d="M12 15a6 6 0 0 0-6 6" />
+                  <path d="M18 21a6 6 0 0 0-6-6" />
+                </svg>
+              </div>
+            )}
+            {file ? (
               <p style={{ color: 'var(--accent)', fontWeight: 'bold' }}>{file.name}</p>
             ) : (
-              <p style={{ opacity: 0.5 }}>{isDragging ? "Drop it here!" : "Click or Drag & Drop File"}</p>
+              <p style={{ opacity: 0.5, fontSize: '1.1rem' }}>{isDragging ? "Drop to defy gravity" : "Click or Drag & Drop File"}</p>
             )}
           </div>
         )}
