@@ -169,10 +169,13 @@ async def get_share(code: str):
                     is_pdf = share.get("file_name", "").lower().endswith(".pdf") or public_id.lower().endswith(".pdf")
                     final_res_type = "image" if is_pdf else res_type
                     
-                    # Ensure public_id doesn't have a trailing .pdf if we are forcing 'image'
+                    # Ensure public_id doesn't have a trailing extension for images/videos
                     signing_id = public_id
-                    if is_pdf and signing_id.lower().endswith(".pdf"):
-                        signing_id = signing_id[:-4]
+                    if final_res_type in ["image", "video"]:
+                        for ext in [".pdf", ".jpg", ".jpeg", ".png", ".gif", ".mp4"]:
+                            if signing_id.lower().endswith(ext):
+                                signing_id = signing_id[:-len(ext)]
+                                break
 
                     # Generate the signed download URL
                     signed_url = cloudinary.utils.private_download_url(
