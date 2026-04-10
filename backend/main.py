@@ -132,6 +132,7 @@ async def get_share(code: str):
         share["expires_at"] = expires.isoformat().replace("+00:00", "Z")
         remaining = (expires - datetime.now(timezone.utc)).total_seconds()
         share["remaining_seconds"] = max(0, int(remaining))
+
     if share.get("content_type") == "file":
         try:
             public_id = share.get("file_public_id")
@@ -142,36 +143,21 @@ async def get_share(code: str):
                 url_parts = share["content"].split("/")
                 try:
                     upload_idx = url_parts.index("upload")
-                    # Extract res_type from URL (e.g. 'image', 'raw')
                     parsed_res_type = url_parts[upload_idx - 1]
                     if parsed_res_type and parsed_res_type != "upload":
                         res_type = parsed_res_type
-                        
-                    # Find version and public_id
                     for i in range(upload_idx + 1, len(url_parts)):
                         if url_parts[i].startswith("v") and url_parts[i][1:].isdigit():
-                            # public_id is everything after the version
                             public_id = "/".join(url_parts[i+1:])
                             break
-                except Exception as e:
-                    print(f"Parser error: {e}")
+                except Exception:
                     pass
 
-            # ENHANCEMENT: For PDFs, force resource_type to "image".
-            # Cloudinary handles PDFs as images for transformations (like fl_attachment)
-            # and this is the most reliable way to sign them.
-            is_pdf = share.get("file_name", "").lower().endswith(".pdf") or (public_id and public_id.lower().endswith(".pdf"))
-            
-            if is_pdf:
-                res_type = "image"
-
             if public_id:
-                # Provide the local download link instead of Cloudinary URL
-                # This ensures the browser only ever talks to our reliable backend.
-                apiUrl = "http://localhost:8000" # Should be configurable in prod
+                # Provide the local download link for proxying
                 share["download_url"] = f"/download/{code}"
                 
-                # We still generate the signed URL for the backend to use
+                # Generate internal signed URL for the backend/fallback
                 try:
                     is_pdf = share.get("file_name", "").lower().endswith(".pdf") or public_id.lower().endswith(".pdf")
                     final_res_type = "image" if is_pdf else res_type
@@ -187,9 +173,9 @@ async def get_share(code: str):
                     )
                     share["content"] = signed_url
                 except Exception as e:
-                    print(f"Error in share processing: {e}")
+                    print(f"Error generating internal link: {e}")
         except Exception as e:
-            print(f"Fatal error in get_share: {e}")
+            print(f"Error processing file share: {e}")
 
     return share
 
