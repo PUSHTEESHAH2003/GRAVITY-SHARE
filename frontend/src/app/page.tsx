@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useScroll, useTransform, useMotionValueEvent } from "framer-motion";
 import { Upload, FileText, Search, Clock, Shield, ArrowRight } from "lucide-react";
 import { useGravity } from "@/context/GravityContext";
 
@@ -16,14 +16,20 @@ export default function Home() {
   const router = useRouter();
   const { setCorePosition, setCoreScale, setCoreOpacity } = useGravity();
 
+  // Scroll-based fading logic
+  const { scrollY } = useScroll();
+  const opacityValue = useTransform(scrollY, [0, 300], [0.8, 0]);
+
+  useMotionValueEvent(opacityValue, "change", (latest) => {
+    setCoreOpacity(latest);
+  });
+
   useEffect(() => {
-    // Synchronize the 3D core with the hero header
-    setCorePosition([0, 2.5, -3]); // Positioned behind the high header
+    // Center the core behind the hero header
+    setCorePosition([0, 2.5, -3]);
     setCoreScale(2.2);
-    setCoreOpacity(0.8);
 
     return () => {
-      // Reset when navigating away if necessary
       setCorePosition([0, 0, 0]);
       setCoreScale(1);
       setCoreOpacity(1);
