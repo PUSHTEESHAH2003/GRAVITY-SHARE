@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Download, Copy, Clock, Shield, ArrowLeft, FileText, CheckCircle } from "lucide-react";
+import { useGravity } from "@/context/GravityContext";
 
 interface ShareItem {
   code: string;
@@ -20,6 +21,20 @@ export default function ViewShare() {
   const [remainingSecs, setRemainingSecs] = useState<number | null>(null);
   const [presence, setPresence] = useState("");
   const [copied, setCopied] = useState(false);
+  const { setCorePosition, setCoreScale, setCoreOpacity } = useGravity();
+
+  useEffect(() => {
+    // Center the core behind the access key
+    setCorePosition([0, 2, -4]); 
+    setCoreScale(1.8);
+    setCoreOpacity(0.6);
+
+    return () => {
+      setCorePosition([0, 0, 0]);
+      setCoreScale(1);
+      setCoreOpacity(1);
+    };
+  }, [setCorePosition, setCoreScale, setCoreOpacity]);
 
   useEffect(() => {
     const fetchShare = async () => {

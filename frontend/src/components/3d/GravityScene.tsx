@@ -4,27 +4,48 @@ import React, { useRef, useMemo } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { Points, PointMaterial, Float, MeshDistortMaterial, Sphere, PerspectiveCamera } from "@react-three/drei";
 import * as THREE from "three";
+import { useGravity } from "@/context/GravityContext";
 
 function GravityCore() {
+  const meshRef = useRef<THREE.Group>(null);
+  const { corePosition, coreScale, coreOpacity } = useGravity();
+
+  useFrame((state) => {
+    if (meshRef.current) {
+      // Smoothly interpolate position (lerp)
+      meshRef.current.position.x = THREE.MathUtils.lerp(meshRef.current.position.x, corePosition[0], 0.1);
+      meshRef.current.position.y = THREE.MathUtils.lerp(meshRef.current.position.y, corePosition[1], 0.1);
+      meshRef.current.position.z = THREE.MathUtils.lerp(meshRef.current.position.z, corePosition[2], 0.1);
+      
+      // Smoothly interpolate scale
+      const targetScale = coreScale || 1;
+      meshRef.current.scale.setScalar(THREE.MathUtils.lerp(meshRef.current.scale.x, targetScale, 0.1));
+    }
+  });
+
   return (
-    <Float speed={2} rotationIntensity={2} floatIntensity={2}>
-      <Sphere args={[1, 64, 64]}>
-        <MeshDistortMaterial
-          color="#00ffff"
-          speed={3}
-          distort={0.4}
-          radius={1}
-          emissive="#00ffff"
-          emissiveIntensity={0.5}
-          roughness={0.2}
-          metalness={0.8}
-        />
-      </Sphere>
-      {/* Outer wireframe shell */}
-      <Sphere args={[1.2, 32, 32]}>
-        <meshStandardMaterial color="#8a2be2" wireframe transparent opacity={0.2} />
-      </Sphere>
-    </Float>
+    <group ref={meshRef}>
+      <Float speed={2} rotationIntensity={2} floatIntensity={2}>
+        <Sphere args={[1, 64, 64]}>
+          <MeshDistortMaterial
+            color="#00ffff"
+            speed={3}
+            distort={0.4}
+            radius={1}
+            emissive="#00ffff"
+            emissiveIntensity={0.5 * coreOpacity}
+            transparent
+            opacity={coreOpacity}
+            roughness={0.2}
+            metalness={0.8}
+          />
+        </Sphere>
+        {/* Outer wireframe shell */}
+        <Sphere args={[1.2, 32, 32]}>
+          <meshStandardMaterial color="#8a2be2" wireframe transparent opacity={0.2 * coreOpacity} />
+        </Sphere>
+      </Float>
+    </group>
   );
 }
 

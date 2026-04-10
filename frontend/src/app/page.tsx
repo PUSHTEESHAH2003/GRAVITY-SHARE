@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Upload, FileText, Search, Clock, Shield, ArrowRight } from "lucide-react";
+import { useGravity } from "@/context/GravityContext";
 
 export default function Home() {
   const [type, setType] = useState<"text" | "file" | "retrieve">("text");
@@ -13,6 +14,21 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const router = useRouter();
+  const { setCorePosition, setCoreScale, setCoreOpacity } = useGravity();
+
+  useEffect(() => {
+    // Synchronize the 3D core with the hero header
+    setCorePosition([0, 2.5, -3]); // Positioned behind the high header
+    setCoreScale(2.2);
+    setCoreOpacity(0.8);
+
+    return () => {
+      // Reset when navigating away if necessary
+      setCorePosition([0, 0, 0]);
+      setCoreScale(1);
+      setCoreOpacity(1);
+    };
+  }, [setCorePosition, setCoreScale, setCoreOpacity]);
 
   const handleShare = async () => {
     if (type === "retrieve") {
