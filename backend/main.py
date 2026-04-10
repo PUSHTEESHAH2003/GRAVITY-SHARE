@@ -163,14 +163,24 @@ async def get_share(code: str):
 
             if public_id:
                 try:
+                    # CLOUDINARY RULES: For images/videos (including PDFs), 
+                    # the public_id used for signing MUST NOT include the extension.
+                    # The extension is passed separately in the 'format' parameter.
+                    signing_public_id = public_id
+                    current_format = share.get("file_name", "download").split(".")[-1]
+                    
+                    if res_type in ["image", "video"]:
+                        for ext in [".pdf", ".jpg", ".png", ".gif", ".mp4"]:
+                            if signing_public_id.lower().endswith(ext):
+                                signing_public_id = signing_public_id[:-len(ext)]
+                                break
+
                     # PERMANENT SOLUTION: Use private_download_url
-                    # This generates a signed API-based download link that bypasses "Strict Transformation" errors.
-                    # It works for any resource type (image, raw, video).
                     signed_url = cloudinary.utils.private_download_url(
-                        public_id,
-                        share.get("file_name", "download").split(".")[-1], # extension
+                        signing_public_id,
+                        current_format if res_type in ["image", "video"] else "", # Format for images, empty for raw
                         resource_type=res_type,
-                        attachment=share.get("file_name", True) # Force download with filename
+                        attachment=share.get("file_name", True)
                     )
                     share["content"] = signed_url
                 except Exception as e:
