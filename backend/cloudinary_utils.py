@@ -16,7 +16,12 @@ async def upload_file(file_content, filename):
     # motor or other async libs don't always support cloudinary's sync upload well, 
     # but for simplicity we'll use the standard uploader.
     # In a production app, we might use a threadpool.
-    upload_result = cloudinary.uploader.upload(file_content, public_id=filename, resource_type="auto")
+    upload_result = cloudinary.uploader.upload(
+        file_content, 
+        public_id=filename, 
+        resource_type="auto",
+        access_mode="public"
+    )
     return upload_result.get("secure_url"), upload_result.get("public_id")
 
 async def delete_file(public_id):

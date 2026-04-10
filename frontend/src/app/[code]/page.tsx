@@ -249,7 +249,7 @@ export default function ViewShare() {
               <p style={{ marginTop: '1rem', opacity: 0.6 }}>Secure file ready for decryption</p>
             </div>
             <a 
-              href={share?.content?.replace("/upload/", "/upload/fl_attachment/")} 
+              href={share?.content} 
               download={share?.file_name}
               target="_blank" 
               rel="noopener noreferrer" 
