@@ -181,87 +181,101 @@ async def get_share(code: str):
 
 @app.get("/download/{code}")
 async def proxy_download(code: str):
-    share = await db.shares.find_one({"code": code.upper()})
-    if not share or share.get("content_type") != "file":
-        raise HTTPException(status_code=404, detail="File not found or not a file share")
+    try:
+        share = await db.shares.find_one({"code": code.upper()})
+        if not share or share.get("content_type") != "file":
+            raise HTTPException(status_code=404, detail="File not found or not a file share")
 
-    # 1. Identify source metadata
-    public_id = share.get("file_public_id")
-    res_type = share.get("file_resource_type", "auto")
-    
-    # 2. Parser fallback for legacy shares missing metadata
-    if not public_id and share.get("content"):
-        url_parts = share["content"].split("/")
-        try:
-            upload_idx = url_parts.index("upload")
-            res_type = url_parts[upload_idx - 1]
-            for i in range(upload_idx + 1, len(url_parts)):
-                if url_parts[i].startswith("v") and url_parts[i][1:].isdigit():
-                    public_id = "/".join(url_parts[i+1:])
-                    break
-        except Exception:
-            pass
+        # 1. Identify source metadata
+        public_id = share.get("file_public_id")
+        res_type = share.get("file_resource_type", "auto")
+        
+        # 2. Parser fallback for legacy shares missing metadata
+        if not public_id and share.get("content"):
+            url_parts = share["content"].split("/")
+            try:
+                upload_idx = url_parts.index("upload")
+                res_type = url_parts[upload_idx - 1]
+                for i in range(upload_idx + 1, len(url_parts)):
+                    if url_parts[i].startswith("v") and url_parts[i][1:].isdigit():
+                        public_id = "/".join(url_parts[i+1:])
+                        break
+            except Exception:
+                pass
 
-    if not public_id:
-        raise HTTPException(status_code=404, detail="File source ID missing in database")
+        if not public_id:
+            raise HTTPException(status_code=404, detail="File source ID missing in database")
 
-    is_pdf = share.get("file_name", "").lower().endswith(".pdf") or public_id.lower().endswith(".pdf")
-    final_res_type = "image" if is_pdf else res_type
+        is_pdf = share.get("file_name", "").lower().endswith(".pdf") or public_id.lower().endswith(".pdf")
+        final_res_type = "image" if is_pdf else res_type
 
-    # 3. RESILIENT PROXY: Try to find the file across all possible Cloudinary categories
-    async def get_valid_source():
-        types_to_try = [final_res_type]
-        if is_pdf:
-            types_to_try.append("raw" if final_res_type == "image" else "image")
-        if "raw" not in types_to_try: types_to_try.append("raw")
-        if "image" not in types_to_try: types_to_try.append("image")
+        # 3. RESILIENT PROXY: Try to find the file across all possible Cloudinary categories
+        async def get_valid_source():
+            # Categories to probe
+            types_to_try = [final_res_type]
+            if is_pdf:
+                alt = "raw" if final_res_type == "image" else "image"
+                if alt not in types_to_try: types_to_try.append(alt)
+            for t in ["raw", "image", "video"]:
+                if t not in types_to_try: types_to_try.append(t)
 
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            for rtype in types_to_try:
-                local_id = public_id
-                # Rule: Images/Videos use clean IDs (no extension); Raw uses full IDs
-                if rtype in ["image", "video"]:
-                    for ext in [".pdf", ".jpg", ".jpeg", ".png", ".gif", ".mp4"]:
-                        if local_id.lower().endswith(ext):
-                            local_id = local_id[:-len(ext)]
-                            break
-                
-                try:
-                    target_url = cloudinary.utils.private_download_url(
-                        local_id,
-                        share.get("file_name", "download").split(".")[-1] if rtype in ["image", "video"] else "",
-                        resource_type=rtype,
-                        attachment=share.get("file_name", True)
-                    )
+            async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
+                for rtype in types_to_try:
+                    local_id = public_id
+                    # Clean ID for images/videos; full ID for raw
+                    if rtype in ["image", "video"]:
+                        for ext in [".pdf", ".jpg", ".jpeg", ".png", ".gif", ".mp4"]:
+                            if local_id.lower().endswith(ext):
+                                local_id = local_id[:-len(ext)]
+                                break
                     
-                    # PROBE: Check if Cloudinary has this file
-                    resp = await client.head(target_url)
-                    if resp.status_code == 200:
-                        return target_url
-                except Exception:
-                    continue
-        return None
+                    try:
+                        target_url = cloudinary.utils.private_download_url(
+                            local_id,
+                            share.get("file_name", "download").split(".")[-1] if rtype in ["image", "video"] else "",
+                            resource_type=rtype,
+                            attachment=share.get("file_name", True)
+                        )
+                        
+                        # PROBE: Check if Cloudinary has this file
+                        resp = await client.head(target_url)
+                        if resp.status_code == 200:
+                            return target_url
+                    except Exception as e:
+                        print(f"Probe error for {rtype}: {e}")
+                        continue
+            return None
 
-    target_signed_url = await get_valid_source()
-    if not target_signed_url:
-        raise HTTPException(status_code=404, detail="File could not be found in any Cloudinary category.")
+        target_signed_url = await get_valid_source()
+        if not target_signed_url:
+            raise HTTPException(status_code=404, detail="File could not be found in any Cloudinary category.")
 
-    # 4. Stream the verified URL
-    async def stream_file():
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            async with client.stream("GET", target_signed_url) as response:
-                async for chunk in response.aiter_bytes():
-                    yield chunk
+        # 4. Stream the verified URL
+        async def stream_file():
+            async with httpx.AsyncClient(timeout=60.0, follow_redirects=True) as client:
+                async with client.stream("GET", target_signed_url) as response:
+                    if response.status_code != 200:
+                         # This shouldn't happen after pre-flight, but just in case
+                         yield b"Error: Cloudinary refused connection after probe."
+                         return
+                    async for chunk in response.aiter_bytes():
+                        yield chunk
 
-    return StreamingResponse(
-        stream_file(),
-        media_type="application/octet-stream",
-        headers={
-            "Content-Disposition": f'attachment; filename="{share.get("file_name", "download")}"',
-            "Cache-Control": "no-cache",
-            "X-Content-Type-Options": "nosniff"
-        }
-    )
+        return StreamingResponse(
+            stream_file(),
+            media_type="application/octet-stream",
+            headers={
+                "Content-Disposition": f'attachment; filename="{share.get("file_name", "download")}"',
+                "Cache-Control": "no-cache",
+                "X-Content-Type-Options": "nosniff"
+            }
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        # RETURN DETAILED ERROR TO BROWSER FOR DEBUGGING
+        print(f"PROXY GLOBAL ERROR: {e}")
+        raise HTTPException(status_code=500, detail=f"Proxy Error: {str(e)}")
 
 @app.websocket("/ws/{code}")
 async def websocket_endpoint(websocket: WebSocket, code: str):
