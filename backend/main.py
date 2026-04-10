@@ -127,23 +127,63 @@ async def get_share(code: str):
         if expires.tzinfo is None:
             expires = expires.replace(tzinfo=timezone.utc)
         
-        share["expires_at"] = expires.isoformat().replace("+00:00", "Z")
-        remaining = (expires - datetime.now(timezone.utc)).total_seconds()
-        share["remaining_seconds"] = max(0, int(remaining))
-    
     # Generate a signed download URL if it's a file
-    if share.get("content_type") == "file" and share.get("file_public_id"):
+    if share.get("content_type") == "file":
         try:
-            # We add a signature and force attachment with the original filename
-            signed_url, _ = cloudinary.utils.cloudinary_url(
-                share["file_public_id"],
-                sign_url=True,
-                resource_type=share.get("file_resource_type", "auto"),
-                transformation=[
-                    {"flags": f"attachment:{share.get('file_name', 'download')}"}
-                ]
-            )
-            share["content"] = signed_url
+            public_id = share.get("file_public_id")
+            res_type = share.get("file_resource_type", "auto")
+            
+            # Robust fallback: If metadata is missing (legacy share), parse it from the URL
+            if not public_id and share.get("content"):
+                url_parts = share["content"].split("/")
+                try:
+                    upload_idx = url_parts.index("upload")
+                    # Extract res_type from URL (e.g. 'image', 'raw')
+                    parsed_res_type = url_parts[upload_idx - 1]
+                    if parsed_res_type and parsed_res_type != "upload":
+                        res_type = parsed_res_type
+                        
+                    # Find version and public_id
+                    for i in range(upload_idx + 1, len(url_parts)):
+                        if url_parts[i].startswith("v") and url_parts[i][1:].isdigit():
+                            # public_id is everything after the version
+                            public_id = "/".join(url_parts[i+1:])
+                            break
+                except Exception as e:
+                    print(f"Parser error: {e}")
+                    pass
+
+            # ENHANCEMENT: For PDFs, force resource_type to "image".
+            # Cloudinary handles PDFs as images for transformations (like fl_attachment)
+            # and this is the most reliable way to sign them.
+            is_pdf = share.get("file_name", "").lower().endswith(".pdf") or (public_id and public_id.lower().endswith(".pdf"))
+            
+            if is_pdf:
+                res_type = "image"
+
+            if public_id:
+                try:
+                    # PERMANENT SOLUTION: Use private_download_url
+                    # This generates a signed API-based download link that bypasses "Strict Transformation" errors.
+                    # It works for any resource type (image, raw, video).
+                    signed_url = cloudinary.utils.private_download_url(
+                        public_id,
+                        share.get("file_name", "download").split(".")[-1], # extension
+                        resource_type=res_type,
+                        attachment=share.get("file_name", True) # Force download with filename
+                    )
+                    share["content"] = signed_url
+                except Exception as e:
+                    print(f"Error generating private download URL: {e}")
+                    # Ultimate Fallback: try the basic signed transformer URL if API-based fails
+                    signed_url, _ = cloudinary.utils.cloudinary_url(
+                        public_id,
+                        sign_url=True,
+                        resource_type=res_type,
+                        format="pdf" if is_pdf else None,
+                        flags=f"attachment:{share.get('file_name', 'download')}"
+                    )
+                    share["content"] = signed_url
         except Exception as e:
             print(f"Error generating signed URL: {e}")
             # Fallback to original URL if signing fails
