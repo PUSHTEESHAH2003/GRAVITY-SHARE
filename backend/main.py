@@ -97,10 +97,11 @@ async def create_share(
         
         try:
             file_content = await file.read()
-            url, public_id, res_type = await upload_file(file_content, f"gravity_{code}_{file.filename}")
+            url, public_id, res_type = await upload_file(file_content, file.filename)
             share_data["content"] = url
             share_data["file_name"] = file.filename
-            share_data["file_public_id"] = public_id
+            share_id = public_id # This is the ACTUAL ID returned by Cloudinary
+            share_data["file_public_id"] = share_id
             share_data["file_resource_type"] = res_type
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Upload failed: {e}")
@@ -222,27 +223,36 @@ async def proxy_download(code: str):
             async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
                 for rtype in types_to_try:
                     local_id = public_id
-                    # Clean ID for images/videos; full ID for raw
+                    
+                    # CLOUDINARY LOGIC: 
+                    # Images/Videos: public_id generally EXCLUDES extension in the signature.
+                    # Raw: public_id generally INCLUDES extension in the signature.
+                    current_format = share.get("file_name", "download").split(".")[-1]
+                    
                     if rtype in ["image", "video"]:
+                        # Ensure no extension in the signing ID
                         for ext in [".pdf", ".jpg", ".jpeg", ".png", ".gif", ".mp4"]:
                             if local_id.lower().endswith(ext):
                                 local_id = local_id[:-len(ext)]
                                 break
+                    else: 
+                        # For 'raw', ensure extension is present if we know it
+                        if not local_id.lower().endswith(f".{current_format.lower()}"):
+                            local_id = f"{local_id}.{current_format}"
                     
                     try:
                         target_url = cloudinary.utils.private_download_url(
                             local_id,
-                            share.get("file_name", "download").split(".")[-1] if rtype in ["image", "video"] else "",
+                            current_format if rtype in ["image", "video"] else "",
                             resource_type=rtype,
                             attachment=share.get("file_name", True)
                         )
                         
-                        # PROBE: Check if Cloudinary has this file
+                        # PROBE: Verify this specific combination works
                         resp = await client.head(target_url)
                         if resp.status_code == 200:
                             return target_url
-                    except Exception as e:
-                        print(f"Probe error for {rtype}: {e}")
+                    except Exception:
                         continue
             return None
 
