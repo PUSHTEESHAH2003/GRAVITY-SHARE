@@ -101,6 +101,9 @@ function DataParticles({ count = 1000 }) {
 }
 
 export default function GravityScene() {
+  const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+  const particleCount = isMobile ? 800 : 2000;
+
   return (
     <div id="canvas-background">
       <Canvas dpr={[1, 2]}>
@@ -110,7 +113,7 @@ export default function GravityScene() {
         <pointLight position={[-10, -10, -10]} intensity={1} color="#00ffff" />
         
         <GravityCore />
-        <DataParticles count={2000} />
+        <DataParticles count={particleCount} />
         
         <fog attach="fog" args={["#0a0a0c", 10, 25]} />
       </Canvas>

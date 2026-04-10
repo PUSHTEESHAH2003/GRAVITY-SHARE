@@ -130,13 +130,13 @@ export default function ViewShare() {
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.6 }}
-      style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2rem', marginTop: '2rem' }}
+      style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2rem', marginTop: '1rem', width: '100%' }}
     >
       <div style={{ textAlign: 'center' }}>
-        <motion.p initial={{ opacity: 0 }} animate={{ opacity: 0.5 }} style={{ letterSpacing: '4px', marginBottom: '0.5rem', fontSize: '0.8rem' }}>SECURE ACCESS KEY</motion.p>
-        <h1 style={{ fontSize: '5rem', fontWeight: 900, color: 'var(--accent)', textShadow: '0 0 40px rgba(0,255,255,0.4)', letterSpacing: '8px' }}>{code}</h1>
-        <div className="countdown" style={{ marginTop: '1.5rem', fontSize: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
-          <Clock size={20} /> Expires in: {timeLeft}
+        <motion.p initial={{ opacity: 0 }} animate={{ opacity: 0.5 }} style={{ letterSpacing: '4px', marginBottom: '0.5rem', fontSize: '0.7rem' }}>SECURE ACCESS KEY</motion.p>
+        <h1 style={{ fontSize: 'clamp(2.5rem, 15vw, 5rem)', fontWeight: 900, color: 'var(--accent)', textShadow: '0 0 40px rgba(0,255,255,0.4)', letterSpacing: '4px' }}>{code}</h1>
+        <div className="countdown" style={{ marginTop: '1rem', fontSize: '1.2rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+          <Clock size={18} /> Expires in: {timeLeft}
         </div>
       </div>
 

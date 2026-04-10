@@ -83,20 +83,20 @@ export default function Home() {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.8 }}
-      style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2rem', marginTop: '4rem' }}
+      style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2rem', marginTop: '2rem', width: '100%' }}
     >
-      <div style={{ textAlign: 'center', maxWidth: '800px' }}>
+      <div style={{ textAlign: 'center', maxWidth: '800px', padding: '0 1rem' }}>
         <motion.div
            initial={{ scale: 0.9, opacity: 0 }}
            animate={{ scale: 1, opacity: 1 }}
            transition={{ delay: 0.2, duration: 0.5 }}
         >
-          <h1 style={{ fontSize: '4.5rem', marginBottom: '1.5rem', fontWeight: 900, lineHeight: 1.1 }}>
+          <h1 style={{ fontSize: 'clamp(2.5rem, 10vw, 4.5rem)', marginBottom: '1.5rem', fontWeight: 900, lineHeight: 1.1 }}>
             Securely Share. <br />
             <span style={{ color: 'var(--accent)', textShadow: '0 0 30px rgba(0,255,255,0.3)' }}>Then it Vanishes.</span>
           </h1>
         </motion.div>
-        <p style={{ opacity: 0.7, fontSize: '1.2rem', marginBottom: '2rem' }}>
+        <p style={{ opacity: 0.7, fontSize: 'clamp(1rem, 3vw, 1.2rem)', marginBottom: '2rem' }}>
           An ephemeral data sharing platform that defies gravity and persists for only 60 minutes.
         </p>
       </div>
@@ -217,9 +217,9 @@ export default function Home() {
                 value={codeToRetrieve}
                 onChange={(e) => setCodeToRetrieve(e.target.value.substring(0,6))}
                 style={{ 
-                  fontSize: '3rem', 
+                  fontSize: 'clamp(1.5rem, 8vw, 3rem)', 
                   textAlign: 'center', 
-                  letterSpacing: '12px', 
+                  letterSpacing: 'clamp(4px, 3vw, 12px)', 
                   textTransform: 'uppercase',
                   fontWeight: 900,
                   background: 'rgba(0,0,0,0.2)',
