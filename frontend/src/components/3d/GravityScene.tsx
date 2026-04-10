@@ -105,10 +105,10 @@ export default function GravityScene() {
   const atmosphere = useMemo(() => {
     return {
       coreColor: isNight ? "#4b0082" : "#00ffff",
-      shellColor: isNight ? "#1a0033" : "#8a2be2",
+      shellColor: isNight ? "#1a0033" : "#003366",
       particleColor: isNight ? "#8a2be2" : "#00ffff",
-      emissiveIntensity: isNight ? 0.2 : 0.8,
-      distortSpeed: isNight ? 1 : (isMobile ? 5 : 3),
+      emissiveIntensity: isNight ? (isMobile ? 0.4 : 0.2) : (isMobile ? 1.5 : 0.8),
+      distortSpeed: isNight ? 1 : (isMobile ? 4 : 3),
       distortAmount: isNight ? 0.2 : 0.45,
       floatSpeed: isNight ? 1 : (isMobile ? 2.5 : 2),
       rotationIntensity: isNight ? 1 : 2,
@@ -117,6 +117,17 @@ export default function GravityScene() {
       particleRotationX: isNight ? 0.0001 : 0.0006,
     };
   }, [isMobile, isNight]);
+
+  // Sync Global CSS Variables with 3D Atmosphere
+  React.useEffect(() => {
+    const root = document.documentElement;
+    root.style.setProperty('--primary', isNight ? "#8a2be2" : "#00ffff");
+    root.style.setProperty('--secondary', isNight ? "#4b0082" : "#003366");
+    root.style.setProperty('--accent', isNight ? "#00ffff" : "#00ffff"); // Keep accent cyan
+    
+    // Smooth transition for background
+    root.style.setProperty('--background', isNight ? "#050507" : "#0a0c10");
+  }, [isNight]);
 
   const particleCount = isMobile ? 800 : 2000;
 
