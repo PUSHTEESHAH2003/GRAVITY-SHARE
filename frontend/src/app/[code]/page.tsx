@@ -5,11 +5,18 @@ import { useParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Download, Copy, Clock, Shield, ArrowLeft, FileText, CheckCircle } from "lucide-react";
 
+interface ShareItem {
+  code: string;
+  content: string;
+  content_type: "text" | "file";
+  file_name?: string;
+  remaining_seconds: number;
+}
+
 export default function ViewShare() {
   const { code } = useParams();
   const router = useRouter();
-  const [share, setShare] = useState<any>(null);
-  const [timeLeft, setTimeLeft] = useState("Calculating...");
+  const [share, setShare] = useState<ShareItem | null>(null);
   const [remainingSecs, setRemainingSecs] = useState<number | null>(null);
   const [presence, setPresence] = useState("");
   const [copied, setCopied] = useState(false);
@@ -57,16 +64,16 @@ export default function ViewShare() {
     return () => clearInterval(timer);
   }, [remainingSecs]);
 
-  useEffect(() => {
-    if (remainingSecs === null) return;
-    if (remainingSecs <= 0) {
-      setTimeLeft("EXPIRED");
-    } else {
-      const minutes = Math.floor(remainingSecs / 60);
-      const seconds = remainingSecs % 60;
-      setTimeLeft(`${minutes}m ${seconds.toString().padStart(2, '0')}s`);
-    }
-  }, [remainingSecs]);
+  // Derive timeLeft during render instead of using an effect
+  const getTimeLeftString = () => {
+    if (remainingSecs === null) return "Calculating...";
+    if (remainingSecs <= 0) return "EXPIRED";
+    const minutes = Math.floor(remainingSecs / 60);
+    const seconds = remainingSecs % 60;
+    return `${minutes}m ${seconds.toString().padStart(2, '0')}s`;
+  };
+
+  const timeLeft = getTimeLeftString();
 
   const copyToClipboard = () => {
     if (!share?.content) return;

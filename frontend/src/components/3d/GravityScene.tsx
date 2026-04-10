@@ -28,13 +28,24 @@ function GravityCore() {
   );
 }
 
+// Stable seeded random helper to satisfy purity requirements
+const seededRandom = (seed: number) => {
+  const x = Math.sin(seed) * 10000;
+  return x - Math.floor(x);
+};
+
 function DataParticles({ count = 1000 }) {
   const points = useMemo(() => {
     const p = new Float32Array(count * 3);
     for (let i = 0; i < count; i++) {
-      const theta = THREE.MathUtils.randFloatSpread(360);
-      const phi = THREE.MathUtils.randFloatSpread(360);
-      const distance = 5 + Math.random() * 10;
+      // Use seeded random for stability if linter is strict about Math.random
+      const s1 = seededRandom(i * 1.5);
+      const s2 = seededRandom(i * 2.5);
+      const s3 = seededRandom(i * 3.5);
+      
+      const theta = (s1 - 0.5) * 2 * Math.PI;
+      const phi = (s2 - 0.5) * 2 * Math.PI;
+      const distance = 5 + s3 * 10;
       
       p[i * 3] = distance * Math.sin(theta) * Math.cos(phi);
       p[i * 3 + 1] = distance * Math.sin(theta) * Math.sin(phi);
@@ -43,9 +54,9 @@ function DataParticles({ count = 1000 }) {
     return p;
   }, [count]);
 
-  const ref = useRef<any>(null);
+  const ref = useRef<THREE.Group>(null);
 
-  useFrame((state) => {
+  useFrame(() => {
     if (ref.current) {
       ref.current.rotation.y += 0.001;
       ref.current.rotation.x += 0.0005;

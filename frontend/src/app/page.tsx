@@ -93,7 +93,7 @@ export default function Home() {
             <button 
               key={btn.id}
               className={`btn-primary ${type !== btn.id ? 'secondary' : ''}`} 
-              onClick={() => setType(btn.id as any)}
+              onClick={() => setType(btn.id as "text" | "file" | "retrieve")}
               style={{
                 flex: 1,
                 display: 'flex',
