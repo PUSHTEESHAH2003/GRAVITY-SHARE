@@ -14,33 +14,43 @@ cloudinary.config(
     secure=True
 )
 
-def upload_file(file_content, filename):
+def upload_file(file_content, filename, code):
     try:
         # Sanitize filename for public_id: remove extension and special chars
-        # Standardize: alphanumeric and underscores/hyphens only
         name_part = filename
         extension = ""
         if "." in filename:
             name_part, extension = os.path.splitext(filename)
         
         # Cloudinary public_id best practices: no spaces, only allowed special chars
-        clean_id = re.sub(r'[^a-zA-Z0-9_\-]', '_', name_part)
+        clean_name = re.sub(r'[^a-zA-Z0-9_\-]', '_', name_part)
         
-        print(f"Uploading to Cloudinary: {filename} as {clean_id}")
+        # STRATEGY: Treat PDFs and documents as 'raw' assets.
+        # This resolves the 401/404 errors by skipping image-processing logic.
+        is_document = extension.lower() in [".pdf", ".docx", ".doc", ".txt", ".zip", ".rar", ".exe", ".apk"]
+        rtype = "raw" if is_document else "auto"
         
-        # resource_type="auto" works well for most things, but we can be explicit
-        # if Cloudinary fails to guess.
+        # We append the unique sharing code to the ID to prevent collisions
+        # For 'raw' assets, we MUST include the extension for best compatibility
+        clean_id = f"{clean_name}_{code}"
+        if rtype == "raw" and extension:
+            clean_id = f"{clean_name}_{code}{extension}"
+        
+        print(f"Uploading to Cloudinary [{rtype}]: {filename} as {clean_id}")
+        
         upload_result = cloudinary.uploader.upload(
             file_content, 
             public_id=clean_id, 
-            resource_type="auto",
+            resource_type=rtype,
+            type="upload",
             access_mode="public"
         )
         
         return (
             upload_result.get("secure_url"), 
             upload_result.get("public_id"), 
-            upload_result.get("resource_type")
+            upload_result.get("resource_type"),
+            f"v{upload_result.get('version')}"
         )
     except Exception as e:
         print(f"CLOUDINARY UPLOAD ERROR: {str(e)}")

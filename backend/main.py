@@ -1,5 +1,5 @@
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, WebSocket, WebSocketDisconnect
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Dict
 import asyncio
@@ -10,6 +10,7 @@ from cloudinary_utils import upload_file, delete_file
 import json
 import cloudinary.utils
 import httpx
+from fastapi.concurrency import run_in_threadpool
 
 app = FastAPI(title="GravityShare API")
 
@@ -62,7 +63,6 @@ async def cleanup_expired_shares():
             for share in expired_shares:
                 # Delete from Cloudinary if it's a file
                 if share.get("content_type") == "file" and share.get("file_public_id"):
-                    from fastapi.concurrency import run_in_threadpool
                     await run_in_threadpool(delete_file, share["file_public_id"])
                 
                 # Delete from DB
@@ -97,16 +97,16 @@ async def create_share(
             raise HTTPException(status_code=400, detail="File is required")
         
         try:
-            from fastapi.concurrency import run_in_threadpool
-            
             file_content = await file.read()
             # Wrap the sync Cloudinary call in a threadpool to prevent blocking
-            url, public_id, res_type = await run_in_threadpool(upload_file, file_content, file.filename)
+            # Pass the 'code' to ensure unique public_id in Cloudinary
+            url, public_id, res_type, version = await run_in_threadpool(upload_file, file_content, file.filename, code)
             
             share_data["content"] = url
             share_data["file_name"] = file.filename
             share_data["file_public_id"] = public_id
             share_data["file_resource_type"] = res_type
+            share_data["file_version"] = version
             print(f"File uploaded successfully: {file.filename} -> {url}")
         except Exception as e:
             print(f"SHARE CREATION ERROR: {str(e)}")
@@ -193,105 +193,44 @@ async def proxy_download(code: str):
         if not share or share.get("content_type") != "file":
             raise HTTPException(status_code=404, detail="File not found or not a file share")
 
-        # 1. Identify source metadata
+        # TOTAL CONSOLIDATION REDIRECT:
+        # Handles new 'Raw/Public' files via direct link and legacy 'Image' files via signing.
         public_id = share.get("file_public_id")
         res_type = share.get("file_resource_type", "auto")
+        version = share.get("file_version")
+        direct_url = share.get("content")
         
-        # 2. Parser fallback for legacy shares missing metadata
-        if not public_id and share.get("content"):
-            url_parts = share["content"].split("/")
-            try:
-                upload_idx = url_parts.index("upload")
-                res_type = url_parts[upload_idx - 1]
-                for i in range(upload_idx + 1, len(url_parts)):
-                    if url_parts[i].startswith("v") and url_parts[i][1:].isdigit():
-                        public_id = "/".join(url_parts[i+1:])
-                        break
-            except Exception:
-                pass
-
         if not public_id:
-            raise HTTPException(status_code=404, detail="File source ID missing in database")
+             raise HTTPException(status_code=404, detail="Cloudinary metadata missing in database")
 
-        is_pdf = share.get("file_name", "").lower().endswith(".pdf") or public_id.lower().endswith(".pdf")
-        final_res_type = "image" if is_pdf else res_type
+        # If it's a legacy IMAGE type PDF, we MUST use signing to resolve historical 401s
+        if res_type in ["image", "video"]:
+            print(f"SMART-REDIRECT [Legacy Auth]: Securing {res_type} asset {public_id}")
+            filename = share.get("file_name", "download")
+            current_format = filename.split(".")[-1] if "." in filename else ""
+            signing_id = public_id
+            if current_format and signing_id.lower().endswith(f".{current_format.lower()}"):
+                signing_id = signing_id[:-(len(current_format) + 1)]
+            
+            target_url = cloudinary.utils.private_download_url(
+                signing_id,
+                current_format,
+                resource_type=res_type,
+                attachment=filename
+            )
+        else:
+            # For new RAW assets, direct secure public URL is the fastest and most stable (Fix 2)
+            print(f"SMART-REDIRECT [Direct Vault]: Redirecting to public root for {public_id}")
+            target_url = direct_url
+             
+        print(f"GRAVITY CONSOLIDATED REDIRECT: {code} -> {target_url}")
+        return RedirectResponse(url=target_url)
 
-        # 3. RESILIENT PROXY: Try to find the file across all possible Cloudinary categories
-        async def get_valid_source():
-            # Categories to probe
-            types_to_try = [final_res_type]
-            if is_pdf:
-                alt = "raw" if final_res_type == "image" else "image"
-                if alt not in types_to_try: types_to_try.append(alt)
-            for t in ["raw", "image", "video"]:
-                if t not in types_to_try: types_to_try.append(t)
-
-            async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
-                for rtype in types_to_try:
-                    local_id = public_id
-                    
-                    # CLOUDINARY LOGIC: 
-                    # Images/Videos: public_id generally EXCLUDES extension in the signature.
-                    # Raw: public_id generally INCLUDES extension in the signature.
-                    current_format = share.get("file_name", "download").split(".")[-1]
-                    
-                    if rtype in ["image", "video"]:
-                        # Ensure no extension in the signing ID
-                        for ext in [".pdf", ".jpg", ".jpeg", ".png", ".gif", ".mp4"]:
-                            if local_id.lower().endswith(ext):
-                                local_id = local_id[:-len(ext)]
-                                break
-                    else: 
-                        # For 'raw', ensure extension is present if we know it
-                        if not local_id.lower().endswith(f".{current_format.lower()}"):
-                            local_id = f"{local_id}.{current_format}"
-                    
-                    try:
-                        target_url = cloudinary.utils.private_download_url(
-                            local_id,
-                            current_format if rtype in ["image", "video"] else "",
-                            resource_type=rtype,
-                            attachment=share.get("file_name", True)
-                        )
-                        
-                        # PROBE: Verify this specific combination works
-                        resp = await client.head(target_url)
-                        if resp.status_code == 200:
-                            return target_url
-                    except Exception:
-                        continue
-            return None
-
-        target_signed_url = await get_valid_source()
-        if not target_signed_url:
-            raise HTTPException(status_code=404, detail="File could not be found in any Cloudinary category.")
-
-        # 4. Stream the verified URL
-        async def stream_file():
-            async with httpx.AsyncClient(timeout=60.0, follow_redirects=True) as client:
-                async with client.stream("GET", target_signed_url) as response:
-                    if response.status_code != 200:
-                         # This shouldn't happen after pre-flight, but just in case
-                         yield b"Error: Cloudinary refused connection after probe."
-                         return
-                    async for chunk in response.aiter_bytes():
-                        yield chunk
-
-        return StreamingResponse(
-            stream_file(),
-            media_type="application/octet-stream",
-            headers={
-                "Content-Disposition": f'attachment; filename="{share.get("file_name", "download")}"',
-                "Cache-Control": "no-cache",
-                "X-Content-Type-Options": "nosniff"
-            }
-        )
     except HTTPException:
         raise
     except Exception as e:
-        # RETURN DETAILED ERROR TO BROWSER FOR DEBUGGING
-        print(f"PROXY GLOBAL ERROR: {e}")
-        raise HTTPException(status_code=500, detail=f"Proxy Error: {str(e)}")
+        print(f"CONSOLIDATED REDIRECT ERROR: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Secure Download Error: {str(e)}")
 
 @app.websocket("/ws/{code}")
 async def websocket_endpoint(websocket: WebSocket, code: str):

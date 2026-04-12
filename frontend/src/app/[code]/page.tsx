@@ -189,8 +189,25 @@ export default function ViewShare() {
       <div style={{ textAlign: 'center' }}>
         <motion.p initial={{ opacity: 0 }} animate={{ opacity: 0.5 }} style={{ letterSpacing: '4px', marginBottom: '0.5rem', fontSize: '0.7rem' }}>SECURE ACCESS KEY</motion.p>
         <h1 style={{ fontSize: 'clamp(2.5rem, 15vw, 5rem)', fontWeight: 900, color: 'var(--accent)', textShadow: '0 0 40px rgba(0,255,255,0.4)', letterSpacing: '4px' }}>{code}</h1>
-        <div className="countdown" style={{ marginTop: '1rem', fontSize: '1.2rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
-          <Clock size={18} /> Expires in: {timeLeft}
+        <div 
+          className="countdown" 
+          style={{ 
+            marginTop: '1.5rem', 
+            fontSize: '1.4rem', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center', 
+            gap: '0.8rem',
+            background: 'rgba(0, 255, 255, 0.05)',
+            padding: '1rem 2rem',
+            borderRadius: '50px',
+            border: '1px solid rgba(0, 255, 255, 0.1)',
+            boxShadow: '0 0 20px rgba(0, 255, 255, 0.1)'
+          }}
+        >
+          <Clock size={20} className="animate-pulse" /> 
+          <span style={{ opacity: 0.6, fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Portal De-links in:</span>
+          <span style={{ fontWeight: 800, color: 'var(--accent)' }}>{timeLeft}</span>
         </div>
       </div>
 
