@@ -62,17 +62,29 @@ export default function Home() {
 
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      console.log(`Attempting to share content to ${apiUrl}/share`);
+      
       const resp = await fetch(`${apiUrl}/share`, {
         method: "POST",
         body: formData,
       });
+
       const data = await resp.json();
+
+      if (!resp.ok) {
+        const errorMsg = data.detail || "Unknown error occurred";
+        console.error("Backend error:", errorMsg);
+        alert(`Launch Failed: ${errorMsg}`);
+        setLoading(false);
+        return;
+      }
+
       if (data.code) {
         router.push(`/${data.code}`);
       }
     } catch (err) {
       console.error(err);
-      alert("Failed to share. Make sure backend is running.");
+      alert("Portal connection lost. Make sure backend is running and you have internet access.");
     } finally {
       setLoading(false);
     }

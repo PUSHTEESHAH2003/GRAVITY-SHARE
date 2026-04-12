@@ -62,7 +62,8 @@ async def cleanup_expired_shares():
             for share in expired_shares:
                 # Delete from Cloudinary if it's a file
                 if share.get("content_type") == "file" and share.get("file_public_id"):
-                    await delete_file(share["file_public_id"])
+                    from fastapi.concurrency import run_in_threadpool
+                    await run_in_threadpool(delete_file, share["file_public_id"])
                 
                 # Delete from DB
                 await db.shares.delete_one({"_id": share["_id"]})
@@ -96,15 +97,20 @@ async def create_share(
             raise HTTPException(status_code=400, detail="File is required")
         
         try:
+            from fastapi.concurrency import run_in_threadpool
+            
             file_content = await file.read()
-            url, public_id, res_type = await upload_file(file_content, file.filename)
+            # Wrap the sync Cloudinary call in a threadpool to prevent blocking
+            url, public_id, res_type = await run_in_threadpool(upload_file, file_content, file.filename)
+            
             share_data["content"] = url
             share_data["file_name"] = file.filename
-            share_id = public_id # This is the ACTUAL ID returned by Cloudinary
-            share_data["file_public_id"] = share_id
+            share_data["file_public_id"] = public_id
             share_data["file_resource_type"] = res_type
+            print(f"File uploaded successfully: {file.filename} -> {url}")
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Upload failed: {e}")
+            print(f"SHARE CREATION ERROR: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
     else:
         raise HTTPException(status_code=400, detail="Invalid content type")
 
