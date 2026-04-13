@@ -24,6 +24,7 @@ export default function ViewShare() {
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loadingMsg, setLoadingMsg] = useState("Synchronizing with the Gravity Core...");
+  const [isDownloading, setIsDownloading] = useState(false);
   const { setCorePosition, setCoreScale, setCoreOpacity } = useGravity();
 
   useEffect(() => {
@@ -65,13 +66,7 @@ export default function ViewShare() {
         if (data.code) {
           setShare(data);
           setRemainingSecs(data.remaining_seconds);
-          
-          // INSTANT DOWNLOAD: If it's a file, trigger the download immediately 
-          // to provide a seamless 1-step experience.
-          if (data.content_type === 'file' && data.download_url) {
-            const downloadUrl = `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}${data.download_url}`;
-            window.location.href = downloadUrl;
-          }
+          setRemainingSecs(data.remaining_seconds);
         }
       } catch (err) {
         console.error(err);
@@ -123,6 +118,32 @@ export default function ViewShare() {
     navigator.clipboard.writeText(share.content);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleDownload = async () => {
+    if (!share) return;
+    setIsDownloading(true);
+    setLoadingMsg("Decrypting file...");
+    try {
+      const url = share.download_url ? `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}${share.download_url}` : share.content;
+      const resp = await fetch(url);
+      if (!resp.ok) throw new Error("Download failed");
+      const blob = await resp.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = share.file_name || "download";
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(blobUrl);
+      document.body.removeChild(a);
+    } catch (err) {
+      console.error(err);
+      setError("Failed to download file. It might have been already destroyed.");
+    } finally {
+      setIsDownloading(false);
+      setLoadingMsg("Synchronizing with the Gravity Core...");
+    }
   };
 
   if (error) {
@@ -273,17 +294,15 @@ export default function ViewShare() {
               </motion.div>
               <p style={{ marginTop: '1rem', opacity: 0.6 }}>Secure file ready for decryption</p>
             </div>
-            <a 
-              href={share?.download_url ? `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}${share.download_url}` : share?.content} 
-              download={share?.file_name}
-              target="_blank" 
-              rel="noopener noreferrer" 
+            <button 
+              onClick={handleDownload}
+              disabled={isDownloading}
               className="btn-primary" 
-              style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.8rem', padding: '1.2rem 2.5rem', fontSize: '1.1rem' }}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '0.8rem', padding: '1.2rem 2.5rem', fontSize: '1.1rem', cursor: isDownloading ? 'wait' : 'pointer', opacity: isDownloading ? 0.7 : 1 }}
             >
-              <Download size={20} />
-              Retrieve File
-            </a>
+              {isDownloading ? <Clock className="animate-spin" size={20} /> : <Download size={20} />}
+              {isDownloading ? "Decrypting..." : "Retrieve File"}
+            </button>
           </div>
         )}
       </motion.div>

@@ -42,8 +42,7 @@ def upload_file(file_content, filename, code):
             file_content, 
             public_id=clean_id, 
             resource_type=rtype,
-            type="upload",
-            access_mode="public"
+            type="authenticated"
         )
         
         return (
@@ -56,9 +55,9 @@ def upload_file(file_content, filename, code):
         print(f"CLOUDINARY UPLOAD ERROR: {str(e)}")
         raise e
 
-def delete_file(public_id):
+def delete_file(public_id, resource_type="auto", delivery_type="authenticated"):
     if public_id:
         try:
-            cloudinary.uploader.destroy(public_id)
+            cloudinary.uploader.destroy(public_id, resource_type=resource_type, type=delivery_type)
         except Exception as e:
             print(f"CLOUDINARY DELETE ERROR: {e}")
