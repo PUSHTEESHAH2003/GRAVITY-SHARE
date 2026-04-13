@@ -22,6 +22,7 @@ export default function ViewShare() {
   const [remainingSecs, setRemainingSecs] = useState<number | null>(null);
   const [presence, setPresence] = useState("");
   const [copied, setCopied] = useState(false);
+  const [codeCopied, setCodeCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loadingMsg, setLoadingMsg] = useState("Synchronizing with the Gravity Core...");
   const [isDownloading, setIsDownloading] = useState(false);
@@ -120,6 +121,14 @@ export default function ViewShare() {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const copyCodeToClipboard = () => {
+    if (!code) return;
+    const codeString = Array.isArray(code) ? code[0] : code;
+    navigator.clipboard.writeText(codeString);
+    setCodeCopied(true);
+    setTimeout(() => setCodeCopied(false), 2000);
+  };
+
   const handleDownload = async () => {
     if (!share) return;
     setIsDownloading(true);
@@ -209,7 +218,27 @@ export default function ViewShare() {
     >
       <div style={{ textAlign: 'center' }}>
         <motion.p initial={{ opacity: 0 }} animate={{ opacity: 0.5 }} style={{ letterSpacing: '4px', marginBottom: '0.5rem', fontSize: '0.7rem' }}>SECURE ACCESS KEY</motion.p>
-        <h1 style={{ fontSize: 'clamp(2.5rem, 15vw, 5rem)', fontWeight: 900, color: 'var(--accent)', textShadow: '0 0 40px rgba(0,255,255,0.4)', letterSpacing: '4px' }}>{code}</h1>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1.5rem' }}>
+          <h1 style={{ fontSize: 'clamp(2.5rem, 15vw, 5rem)', fontWeight: 900, color: 'var(--accent)', textShadow: '0 0 40px rgba(0,255,255,0.4)', letterSpacing: '4px' }}>{code}</h1>
+          <button 
+            onClick={copyCodeToClipboard}
+            className="btn-primary"
+            title="Copy Access Key"
+            style={{ 
+              padding: '0.8rem', 
+              borderRadius: '16px', 
+              background: 'rgba(0, 255, 255, 0.1)', 
+              border: '1px solid rgba(0, 255, 255, 0.2)',
+              color: 'var(--accent)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'all 0.3s ease'
+            }}
+          >
+            {codeCopied ? <CheckCircle size={24} /> : <Copy size={24} />}
+          </button>
+        </div>
         <div 
           className="countdown" 
           style={{ 
