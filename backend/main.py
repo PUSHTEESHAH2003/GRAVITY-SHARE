@@ -214,25 +214,29 @@ async def proxy_download(code: str):
             attachment=filename
         )
              
-        print(f"GRAVITY CONSOLIDATED PROXY: {code} -> Authenticated Download Route")
-        
         # Proxy the download using httpx and StreamingResponse
         client = httpx.AsyncClient()
+        req = client.build_request("GET", target_url)
         
-        # Best effort to mirror content type, fallback to application/octet-stream
-        response = await client.head(target_url)
-        content_type = response.headers.get("Content-Type", "application/octet-stream")
+        # We explicitly open the stream BEFORE returning StreamingResponse to catch exact Cloudinary HTTP errors immediately.
+        # This completely resolves the RuntimeError generator crash AND bypasses HEAD method restrictions!
+        proxy_resp = await client.send(req, stream=True)
         
-        # Pre-check to avoid StreamingResponse generator exploding and causing RuntimeError
-        if response.status_code >= 400:
+        if proxy_resp.status_code >= 400:
+            await proxy_resp.aclose()
             await client.aclose()
-            raise HTTPException(status_code=response.status_code, detail="Failed to fetch file from storage")
+            raise HTTPException(status_code=proxy_resp.status_code, detail="Failed to fetch file from storage")
 
-        # Using a generator function to yield chunks
+        content_type = proxy_resp.headers.get("Content-Type", "application/octet-stream")
+
+        # Using a generator function to securely yield chunks from the already-open stream
         async def stream_file():
-            async with client.stream("GET", target_url) as stream_res:
-                async for chunk in stream_res.aiter_bytes(chunk_size=8192):
+            try:
+                async for chunk in proxy_resp.aiter_bytes(chunk_size=8192):
                     yield chunk
+            finally:
+                await proxy_resp.aclose()
+                await client.aclose()
 
         # Return the streaming response with appropriate headers
         headers = {
@@ -242,8 +246,7 @@ async def proxy_download(code: str):
         return StreamingResponse(
             stream_file(),
             media_type=content_type,
-            headers=headers,
-            background=lambda: asyncio.create_task(client.aclose()) # Ensure client is closed
+            headers=headers
         )
 
     except HTTPException:
