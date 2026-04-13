@@ -63,7 +63,8 @@ async def cleanup_expired_shares():
             for share in expired_shares:
                 # Delete from Cloudinary if it's a file
                 if share.get("content_type") == "file" and share.get("file_public_id"):
-                    await run_in_threadpool(delete_file, share["file_public_id"])
+                    res_type = share.get("file_resource_type", "auto")
+                    await run_in_threadpool(delete_file, share["file_public_id"], res_type)
                 
                 # Delete from DB
                 await db.shares.delete_one({"_id": share["_id"]})
@@ -194,7 +195,6 @@ async def proxy_download(code: str):
             raise HTTPException(status_code=404, detail="File not found or not a file share")
 
         # TOTAL CONSOLIDATION REDIRECT:
-        # Handles new 'Raw/Public' files via direct link and legacy 'Image' files via signing.
         public_id = share.get("file_public_id")
         res_type = share.get("file_resource_type", "auto")
         version = share.get("file_version")
@@ -203,33 +203,56 @@ async def proxy_download(code: str):
         if not public_id:
              raise HTTPException(status_code=404, detail="Cloudinary metadata missing in database")
 
-        # If it's a legacy IMAGE type PDF, we MUST use signing to resolve historical 401s
-        if res_type in ["image", "video"]:
-            print(f"SMART-REDIRECT [Legacy Auth]: Securing {res_type} asset {public_id}")
-            filename = share.get("file_name", "download")
-            current_format = filename.split(".")[-1] if "." in filename else ""
-            signing_id = public_id
-            if current_format and signing_id.lower().endswith(f".{current_format.lower()}"):
-                signing_id = signing_id[:-(len(current_format) + 1)]
-            
-            target_url = cloudinary.utils.private_download_url(
-                signing_id,
-                current_format,
-                resource_type=res_type,
-                attachment=filename
-            )
-        else:
-            # For new RAW assets, direct secure public URL is the fastest and most stable (Fix 2)
-            print(f"SMART-REDIRECT [Direct Vault]: Redirecting to public root for {public_id}")
-            target_url = direct_url
+        filename = share.get("file_name", "download")
+
+        # Use private_download_url for all authenticated assets to properly handle Cloudinary strict delivery
+        target_url = cloudinary.utils.private_download_url(
+            public_id,
+            "",
+            resource_type=res_type,
+            type="authenticated",
+            attachment=filename
+        )
              
-        print(f"GRAVITY CONSOLIDATED REDIRECT: {code} -> {target_url}")
-        return RedirectResponse(url=target_url)
+        # Proxy the download using httpx and StreamingResponse
+        client = httpx.AsyncClient()
+        req = client.build_request("GET", target_url)
+        
+        # We explicitly open the stream BEFORE returning StreamingResponse to catch exact Cloudinary HTTP errors immediately.
+        # This completely resolves the RuntimeError generator crash AND bypasses HEAD method restrictions!
+        proxy_resp = await client.send(req, stream=True)
+        
+        if proxy_resp.status_code >= 400:
+            await proxy_resp.aclose()
+            await client.aclose()
+            raise HTTPException(status_code=proxy_resp.status_code, detail="Failed to fetch file from storage")
+
+        content_type = proxy_resp.headers.get("Content-Type", "application/octet-stream")
+
+        # Using a generator function to securely yield chunks from the already-open stream
+        async def stream_file():
+            try:
+                async for chunk in proxy_resp.aiter_bytes(chunk_size=8192):
+                    yield chunk
+            finally:
+                await proxy_resp.aclose()
+                await client.aclose()
+
+        # Return the streaming response with appropriate headers
+        headers = {
+            "Content-Disposition": f'attachment; filename="{filename}"'
+        }
+        
+        return StreamingResponse(
+            stream_file(),
+            media_type=content_type,
+            headers=headers
+        )
 
     except HTTPException:
         raise
     except Exception as e:
-        print(f"CONSOLIDATED REDIRECT ERROR: {str(e)}")
+        print(f"CONSOLIDATED PROXY ERROR: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Secure Download Error: {str(e)}")
 
 @app.websocket("/ws/{code}")

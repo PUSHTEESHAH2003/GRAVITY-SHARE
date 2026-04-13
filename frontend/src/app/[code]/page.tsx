@@ -22,8 +22,10 @@ export default function ViewShare() {
   const [remainingSecs, setRemainingSecs] = useState<number | null>(null);
   const [presence, setPresence] = useState("");
   const [copied, setCopied] = useState(false);
+  const [codeCopied, setCodeCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loadingMsg, setLoadingMsg] = useState("Synchronizing with the Gravity Core...");
+  const [isDownloading, setIsDownloading] = useState(false);
   const { setCorePosition, setCoreScale, setCoreOpacity } = useGravity();
 
   useEffect(() => {
@@ -65,13 +67,7 @@ export default function ViewShare() {
         if (data.code) {
           setShare(data);
           setRemainingSecs(data.remaining_seconds);
-          
-          // INSTANT DOWNLOAD: If it's a file, trigger the download immediately 
-          // to provide a seamless 1-step experience.
-          if (data.content_type === 'file' && data.download_url) {
-            const downloadUrl = `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}${data.download_url}`;
-            window.location.href = downloadUrl;
-          }
+          setRemainingSecs(data.remaining_seconds);
         }
       } catch (err) {
         console.error(err);
@@ -123,6 +119,40 @@ export default function ViewShare() {
     navigator.clipboard.writeText(share.content);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const copyCodeToClipboard = () => {
+    if (!code) return;
+    const codeString = Array.isArray(code) ? code[0] : code;
+    navigator.clipboard.writeText(codeString);
+    setCodeCopied(true);
+    setTimeout(() => setCodeCopied(false), 2000);
+  };
+
+  const handleDownload = async () => {
+    if (!share) return;
+    setIsDownloading(true);
+    setLoadingMsg("Decrypting file...");
+    try {
+      const url = share.download_url ? `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}${share.download_url}` : share.content;
+      const resp = await fetch(url);
+      if (!resp.ok) throw new Error("Download failed");
+      const blob = await resp.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = share.file_name || "download";
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(blobUrl);
+      document.body.removeChild(a);
+    } catch (err) {
+      console.error(err);
+      setError("Failed to download file. It might have been already destroyed.");
+    } finally {
+      setIsDownloading(false);
+      setLoadingMsg("Synchronizing with the Gravity Core...");
+    }
   };
 
   if (error) {
@@ -188,7 +218,27 @@ export default function ViewShare() {
     >
       <div style={{ textAlign: 'center' }}>
         <motion.p initial={{ opacity: 0 }} animate={{ opacity: 0.5 }} style={{ letterSpacing: '4px', marginBottom: '0.5rem', fontSize: '0.7rem' }}>SECURE ACCESS KEY</motion.p>
-        <h1 style={{ fontSize: 'clamp(2.5rem, 15vw, 5rem)', fontWeight: 900, color: 'var(--accent)', textShadow: '0 0 40px rgba(0,255,255,0.4)', letterSpacing: '4px' }}>{code}</h1>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1.5rem' }}>
+          <h1 style={{ fontSize: 'clamp(2.5rem, 15vw, 5rem)', fontWeight: 900, color: 'var(--accent)', textShadow: '0 0 40px rgba(0,255,255,0.4)', letterSpacing: '4px' }}>{code}</h1>
+          <button 
+            onClick={copyCodeToClipboard}
+            className="btn-primary"
+            title="Copy Access Key"
+            style={{ 
+              padding: '0.8rem', 
+              borderRadius: '16px', 
+              background: 'rgba(0, 255, 255, 0.1)', 
+              border: '1px solid rgba(0, 255, 255, 0.2)',
+              color: 'var(--accent)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'all 0.3s ease'
+            }}
+          >
+            {codeCopied ? <CheckCircle size={24} /> : <Copy size={24} />}
+          </button>
+        </div>
         <div 
           className="countdown" 
           style={{ 
@@ -273,17 +323,15 @@ export default function ViewShare() {
               </motion.div>
               <p style={{ marginTop: '1rem', opacity: 0.6 }}>Secure file ready for decryption</p>
             </div>
-            <a 
-              href={share?.download_url ? `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}${share.download_url}` : share?.content} 
-              download={share?.file_name}
-              target="_blank" 
-              rel="noopener noreferrer" 
+            <button 
+              onClick={handleDownload}
+              disabled={isDownloading}
               className="btn-primary" 
-              style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.8rem', padding: '1.2rem 2.5rem', fontSize: '1.1rem' }}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '0.8rem', padding: '1.2rem 2.5rem', fontSize: '1.1rem', cursor: isDownloading ? 'wait' : 'pointer', opacity: isDownloading ? 0.7 : 1 }}
             >
-              <Download size={20} />
-              Retrieve File
-            </a>
+              {isDownloading ? <Clock className="animate-spin" size={20} /> : <Download size={20} />}
+              {isDownloading ? "Decrypting..." : "Retrieve File"}
+            </button>
           </div>
         )}
       </motion.div>
