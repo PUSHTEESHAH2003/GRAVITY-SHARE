@@ -115,7 +115,7 @@ export default function ViewShare() {
   const timeLeft = getTimeLeftString();
 
   const copyToClipboard = () => {
-    if (!share?.content) return;
+    if (!share) return;
     navigator.clipboard.writeText(share.content);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -208,6 +208,8 @@ export default function ViewShare() {
       </motion.div>
     );
   }
+
+  if (!share) return null;
 
   return (
     <motion.div 
