@@ -4,7 +4,7 @@ import "./globals.css";
 import React, { ReactNode } from "react";
 import GravityScene from "@/components/3d/GravityScene";
 import { GravityProvider } from "@/context/GravityContext";
-import SystemStatus from "@/components/SystemStatus";
+
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -23,7 +23,7 @@ export default function RootLayout({
       <body className={inter.className} suppressHydrationWarning>
         <GravityProvider>
           <GravityScene />
-          <SystemStatus />
+
           <nav className="nav" style={{ position: 'relative', zIndex: 10 }}>
             <div className="logo">GRAVITY SHARE</div>
             <div style={{ opacity: 0.6, fontSize: '0.9rem' }}>Secure. Temporary. Instant.</div>
